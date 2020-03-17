@@ -1,0 +1,86 @@
+import torch
+import torch.nn as nn
+from utils import Data
+
+dataset = Data()
+train_dataset, test_dataset = torch.utils.data.random_split(dataset, [2000, 812])
+
+batch_size = 4
+learning_rate = 0.002
+num_epochs = 10
+
+train_loader = torch.utils.data.DataLoader(dataset=train_dataset,
+                                           batch_size=batch_size,
+                                           shuffle=True)
+
+test_loader = torch.utils.data.DataLoader(dataset=test_dataset,
+                                          batch_size=batch_size,
+                                          shuffle=False)
+
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
+
+class NeuralNet(nn.Module):
+
+    def __init__(self):
+        super(NeuralNet, self).__init__()
+        '''
+        Exercise - Define the N/w architecture. Use RELU Activation
+        '''
+        self.hid1 = nn.Linear(dataset.inputCount, 90)
+        self.hid1_a = nn.LeakyReLU(0.1)
+        self.hid1_d = nn.Dropout(p=0.02)
+        self.output = nn.Linear(90, dataset.outputCount)
+        self.output_a = nn.LeakyReLU()
+
+    def forward(self, x):
+        '''
+        Exercise - Forward Propagate through the layers as defined above. Fill in params in place of ...
+        '''
+        x = self.hid1_d(self.hid1_a(self.hid1(x)))
+        x = self.output_a(self.output(x))
+        return x
+
+model = NeuralNet().to(device)
+
+criterion = nn.L1Loss()
+optimizer = torch.optim.SGD(model.parameters(), lr=learning_rate)
+
+total_step = len(train_loader)
+for epoch in range(num_epochs):
+    for i, (input, labels) in enumerate(train_loader):
+        # Move tensors to the configured device
+        input = input.to(device)
+        labels = labels.to(device)
+
+        # Forward pass
+
+        '''Exercise - Get Network outputs with forward propagation with current network weights'''
+        outputs = model(input)
+        '''Exercise - Get Loss by comparing outputs with True Labels after forward propagation'''
+        loss = criterion(outputs, labels)
+
+        # Backward and optimize
+
+        '''Exercise - ... below needs to be replaced with functions'''
+
+        optimizer.zero_grad() #'''Exercise - clear the gradients after each pass - Strongly recommended'''
+        loss.backward() #'''Backpropagate the Loss to calculate gradient for each weight'''
+        optimizer.step() #'''Update the weight using the learning rate'''
+
+with torch.no_grad(): # In test phase, we don't need to compute gradients (for memory efficiency)
+        totalError = 0
+        for input, labels in test_loader:
+            '''Exercise - Move input to device after appropriate reshaping'''
+            input = input.to(device)
+
+            '''Exercise - Move labels to device'''
+            labels = labels.to(device)
+
+            #get network outputs
+            outputs = model(input)
+            _, predicted = torch.max(outputs.data, 1)
+            error = abs(labels - outputs.data)
+            totalError += error.sum().item()
+
+        print('Error of the network on the test input: {}'.format(error.sum()))

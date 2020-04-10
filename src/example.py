@@ -31,6 +31,12 @@ class NeuralNet(nn.Module):
         self.hid1 = nn.Linear(dataset.inputCount, 90)
         self.hid1_a = nn.LeakyReLU(0.1)
         self.hid1_d = nn.Dropout(p=0.02)
+        self.hid2 = nn.Linear(90, 512)
+        self.hid2_a = nn.LeakyReLU(0.1)
+        self.hid2_d = nn.Dropout(p=0.02)
+        self.hid3 = nn.Linear(512, 90)
+        self.hid3_a = nn.LeakyReLU(0.1)
+        self.hid3_d = nn.Dropout(p=0.02)
         self.output = nn.Linear(90, dataset.outputCount)
         self.output_a = nn.LeakyReLU()
 
@@ -39,6 +45,8 @@ class NeuralNet(nn.Module):
         Exercise - Forward Propagate through the layers as defined above. Fill in params in place of ...
         '''
         x = self.hid1_d(self.hid1_a(self.hid1(x)))
+        x = self.hid2_d(self.hid2_a(self.hid2(x)))
+        x = self.hid3_d(self.hid3_a(self.hid3(x)))
         x = self.output_a(self.output(x))
         return x
 

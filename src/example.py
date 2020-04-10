@@ -43,6 +43,8 @@ class NeuralNet(nn.Module):
         return x
 
 model = NeuralNet().to(device)
+from invertible_resnet.models import model_utils
+#model = model_utils.ActNorm(7).to(device)
 
 criterion = nn.L1Loss()
 optimizer = torch.optim.SGD(model.parameters(), lr=learning_rate)

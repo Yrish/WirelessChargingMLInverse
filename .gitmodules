@@ -1,0 +1,3 @@
+[submodule "src/invertible-resnet"]
+	path = src/invertible_resnet
+	url = git://github.com/jhjacobsen/invertible-resnet

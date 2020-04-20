@@ -3,8 +3,8 @@ from torch.utils.data import Dataset
 from torch import from_numpy
 import numpy as np
 
-# CSV: 7 nn inputs then 5 nn outputs
-# 5 nn outputs: V_PriWind, kdiff, Bleak, Pout, Vcore
+# CSV: 7 sim inputs then 5 nn outputs
+# 5 sim outputs: V_PriWind, kdiff, Bleak, Pout, Vcore
 class Data(Dataset):
     def __init__(self, csv_path: str = '../data/data.csv', startingIndex: int = 1, inputCount: int = 7, switchInputAndOutput: bool = False) -> "Data":
         self.inputCount: int = inputCount

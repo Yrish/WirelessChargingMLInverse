@@ -42,9 +42,16 @@ class NeuralNet(nn.Module):
         x = self.output_a(self.output(x))
         return x
 
-model = NeuralNet().to(device)
-from invertible_resnet.models import model_utils
+#model = NeuralNet().to(device)
+
+#from invertible_resnet.models import model_utils
+import sys
+import os, os.path
+sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'invertible_resnet'))
+
+from invertible_resnet.models import conv_iResNet
 #model = model_utils.ActNorm(7).to(device)
+model = conv_iResNet.conv_iresnet_block(7, 9)
 
 criterion = nn.L1Loss()
 optimizer = torch.optim.SGD(model.parameters(), lr=learning_rate)

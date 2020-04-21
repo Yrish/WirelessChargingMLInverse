@@ -51,7 +51,8 @@ sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'invert
 
 from invertible_resnet.models import conv_iResNet
 #model = model_utils.ActNorm(7).to(device)
-model = conv_iResNet.conv_iresnet_block(7, 9)
+input_shape = (7,1,1,)
+model = conv_iResNet.conv_iresnet_block(input_shape, 9)
 
 criterion = nn.L1Loss()
 optimizer = torch.optim.SGD(model.parameters(), lr=learning_rate)

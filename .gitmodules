@@ -1,3 +1,6 @@
 [submodule "src/invertible-resnet"]
 	path = src/invertible_resnet
 	url = git://github.com/jhjacobsen/invertible-resnet
+[submodule "src/memcnn"]
+	path = src/memcnn
+	url = git://github.com/silvandeleemput/memcnn

@@ -4,3 +4,6 @@
 [submodule "src/memcnn"]
 	path = src/memcnn
 	url = git://github.com/silvandeleemput/memcnn
+[submodule "src/PyTorch-GAN"]
+	path = src/PyTorch-GAN
+	url = git://github.com/eriklindernoren/PyTorch-GAN

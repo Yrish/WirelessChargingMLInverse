@@ -1,0 +1,149 @@
+# -*- coding: utf-8 -*-
+# vim: set noet ft=python :
+
+"""
+The CLI interface, providing main().
+"""
+
+import argparse
+import sys
+import textwrap
+
+from wcmi import gan
+from wcmi import nn as wnn
+from wcmi.exception import WCMIArgsError
+
+def main(argv=None):
+	# TODO: maybe catch WCMIArgsError and print errors with friendlier
+	# formatting and with print_help().
+	"""
+	Train or run the GAN.
+	"""
+
+	if argv is None:
+		argv = sys.argv[:]
+
+	args = argv[1:]
+
+	parser = argument_parser
+	options = parser.parse_args(args)
+
+	if "action" not in options:
+		raise WCMIArgsError("Error: no action specified.  Try passing train, run, or stats.")
+	action = options.action
+	if action not in actions:
+		raise WCMIArgsError("Error: unrecognized action `{0:s}'.  Try passing train, run, or stats.".format(action))
+	actions[action](options)
+
+def get_argument_parser(prog=None):
+	"""
+	Get a copy of the CLI argument parser.
+	"""
+	argparse_kwargs = {}
+	if prog is not None:
+		argparse_kwargs['prog'] = prog
+	argparse_kwargs = {**argparse_kwargs,
+		'formatter_class': argparse.RawDescriptionHelpFormatter,
+
+		'description': textwrap.dedent("""\
+			Train or run the neural network.
+		"""),
+
+		'epilog': textwrap.dedent("""\
+			Train or run the neural network.
+
+			Examples:
+			  - ./main.py train --save-model dense.pt --load-data ../data/4th_dataset_noid.csv
+			  - ./main.py run   --load-model dense.pt --load-data ../data/4th_dataset_noid.csv --save-data 4th_dataset_predictions.csv
+
+			Training (--load-data) CSV columns (12 + n>=0 total):
+			  7 simulation inputs, then 5 simulation outputs, then optionally forced additional GAN parameters:
+			    Iin[A],Iout[A],l[mm],p1[mm],p2[mm],p3[mm],win[mm],kdiff[%%],Bleak[uT],V_PriWind[cm3],V_PriCore[cm3],Pout[W]
+
+			  If the additional --gan-n columns are absent, random values will
+			  be chosen.
+
+			Post-running (--save-data) CSV columns (19 + n>=0 total):
+			  7 simulation inputs, 5 simulation outputs, 7 predicted simulation inputs (model outputs), n>=0 generator parameters (if GAN).
+
+			(To re-arrange the columns with a numpy permutation, this may be a
+			helpful post: https://stackoverflow.com/a/20265477)
+		"""),
+	}
+	parser = argparse.ArgumentParser(**argparse_kwargs)
+	parser.add_argument("action", type=str, help="Specify what to do: train, run, or stats.")
+
+	parser.add_argument("--dense", action="store_true", help="(All actions): use the dense model (ANN) rather than the GAN.")
+	parser.add_argument("--gan", action="store_true", help="(All actions): use the GAN rather than the dense model.")
+	parser.add_argument("--load-model", type=str, help="(All actions): load a pretrained model rather than randomly initialize the model chosen.")
+
+	parser.add_argument("--save-model", type=str, help="(All actions): after training, save the model to this file.")
+	parser.add_argument(
+		"--gan-n", "--gan-n-parameters", type=int, default=gan.default_gan_n,
+		help="(train action): if using the GAN, specify the number of additional GAN generator parameters (default: {0:d}).  Fail when loading CSV file with a different --gan-n setting.".format(gan.default_gan_n),
+	)
+
+	parser.add_argument("--load-data", type=str, help="(All actions): load training data from this CSV file.")
+
+	parser.add_argument("--save-data", type=str, help="(run action): after running the neural network model on the loaded CSV data, output ")
+	return parser
+
+argument_parser = get_argument_parser()
+
+actions = {}
+def add_action(func):
+	actions[func.__name__] = func
+	return func
+
+def verify_options_common(options):
+	"""
+	Perform CLI argument verification common to all actions.
+	"""
+	if options.dense and options.gan:
+		raise WCMIArgsError("Error: both --gan and --dense were specified.")
+	if not options.dense and not options.gan:
+		raise WCMIArgsError("Error: please pass either --gan to use the GAN or --dense to use the dense model.")
+	if not (options.dense != options.gan):
+		# (This is redundant.)
+		raise WCMIArgsError("Error: --gan or --dense must be specified, but not both.")
+	if options.gan_n < 0:
+		raise WCMIArgsError("Error: --gan-n must be provided with a non-negative number, but {0:d} was provided.".format(options.gan_n))
+
+@add_action
+def train(options):
+	verify_options_common(options)
+	if options.save_data:
+		raise WCMIArgsError("Error: the train action doesn't support --save-data.")
+
+	use_gan = options.gan
+
+	return wnn.train(
+		use_gan=options.gan,
+		load_model=options.load_model,
+		save_model=options.save_model,
+		load_data=options.load_data,
+		gan_n=options.gan_n,
+	)
+
+@add_action
+def run(options):
+	verify_options_common(options)
+
+	return wnn.run(
+		use_gan=options.gan,
+		load_model=options.load_model,
+		save_model=options.save_model,
+		load_data=options.load_data,
+		save_data=options.save_data,
+		gan_n=options.gan_n,
+	)
+
+@add_action
+def stats(options):
+	verify_options_common(options)
+
+	return wnn.stats()
+
+if __name__ == "__main__":
+	import sys
+	main(sys.argv[:])

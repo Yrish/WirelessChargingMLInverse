@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 from utils import Data
+import numpy as np
 
 dataset = Data()
 train_dataset, test_dataset = torch.utils.data.random_split(dataset, [2000, 812])
@@ -48,7 +49,10 @@ optimizer = torch.optim.SGD(model.parameters(), lr=learning_rate)
 
 total_step = len(train_loader)
 for epoch in range(num_epochs):
+    print("Beginning epoch {0:d}/{1:d}".format(epoch + 1, num_epochs))
     for i, (input, labels) in enumerate(train_loader):
+        if i % 100 == 0:
+            print(" - i: {0:d}/{1:d}".format(i, len(train_loader)))
         # Move tensors to the configured device
         input = input.to(device)
         labels = labels.to(device)
@@ -70,7 +74,15 @@ for epoch in range(num_epochs):
 
 with torch.no_grad(): # In test phase, we don't need to compute gradients (for memory efficiency)
         totalError = 0
-        for input, labels in test_loader:
+        # all_outputs:
+        #   2-D array.  Rows are items.  Columns within a row are one of the 7
+        #   outputs.
+        # all_error:
+        #   same shape, but output (i.e. predictions) - labels (i.e. expected)
+        shape = (len(test_loader) * len(train_dataset), dataset.outputCount)
+        all_outputs, all_labels, all_errors = np.zeros(shape), np.zeros(shape), np.zeros(shape)
+        #for input, labels in test_loader:
+        for i, (input, labels) in enumerate(test_loader):
             '''Exercise - Move input to device after appropriate reshaping'''
             input = input.to(device)
 
@@ -83,4 +95,29 @@ with torch.no_grad(): # In test phase, we don't need to compute gradients (for m
             error = abs(labels - outputs.data)
             totalError += error.sum().item()
 
+            labels = labels.to('cpu')
+            end = i + len(labels)
+            all_outputs[i:end] = outputs
+            all_labels [i:end] = labels
+            all_errors [i:end] = labels - outputs
+
         print('Error of the network on the test input: {}'.format(error.sum()))
+
+        for i in range(dataset.outputCount):
+            predictions = all_outputs[:][i]
+            labels      = all_labels [:][i]
+            errors      = all_errors [:][i]
+            squared_errors = np.square(errors)
+            absolute_errors = np.abs(errors)
+            print("")
+            print("NN output #{0:d}:".format(i+1))
+            print("  - predictions mean: {0:f}".format(predictions.mean()))
+            print("  - predictions stddev: {0:f}".format(predictions.std()))
+            print("  - labels mean: {0:f}".format(labels.mean()))
+            print("  - labels stddev: {0:f}".format(labels.std()))
+            print("  - errors mean: {0:f}".format(errors.mean()))
+            print("  - errors stddev: {0:f}".format(errors.std()))
+            print("  - squared errors mean: {0:f}".format(squared_errors.mean()))
+            print("  - squared errors stddev: {0:f}".format(squared_errors.std()))
+            print("  - absolute errors mean: {0:f}".format(absolute_errors.mean()))
+            print("  - absolute errors stddev: {0:f}".format(absolute_errors.std()))

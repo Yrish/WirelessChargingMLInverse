@@ -1,4 +1,4 @@
-,Iin[A],Iout[A],l[mm],p1[mm],p2[mm],p3[mm],win[mm],kdiff[%],Bleak[uT],V_PriWind[cm3],V_PriCore[cm3],Pout[W]
+Iin[A],Iout[A],l[mm],p1[mm],p2[mm],p3[mm],win[mm],kdiff[%],Bleak[uT],V_PriWind[cm3],V_PriCore[cm3],Pout[W]
 10,10,400,10,10,10,100,6.551478722,2.9,38.16,800,50.31296542
 10,20,400,10,10,10,100,6.551478722,5.5,38.16,800,100.6259308
 10,40,400,10,10,10,100,6.551478722,10.7,38.16,800,201.2518617

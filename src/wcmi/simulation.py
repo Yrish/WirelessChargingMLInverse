@@ -498,18 +498,12 @@ def get_simulation_info():
 # The simulation information.
 simulation_info = get_simulation_info()
 
-# For subclassing Tensor c.f.
-# https://discuss.pytorch.org/t/subclassing-torch-tensor/23754
 class SimulationData():
-	# TODO: make load_data_path optional and just set up a pandas frame with no
-	# records if there is no CSV file.
 	"""
-	Subclass of `torch.Tensor` for handling CSV data.
-	"""
-	@staticmethod
-	def __new__(cls, load_data_path, save_data_path=None, simulation_info=None, *args, **kwargs):
-		return super().__new__(cls, *args, **kwargs)
+	Container of a pandas frame loaded from CSV data.
 
+	It can be access by e.g. `simulation_data.data`.
+	"""
 	def __init__(self, load_data_path, save_data_path=None, verify_gan_n=True, optional_gan_n=True, gan_n=None, simulation_info=None, *args, **kwargs):
 		"""
 		Initialize a SimulationData by loading data from a CSV file.
@@ -575,8 +569,8 @@ class SimulationData():
 		self.data = pd.read_csv(load_data_path)
 
 		# Fail if there are too few columns (< 12).
-		num_csv_columns = len(self.data.coclumns)
-		min_needed_columns = self.num_sim_inputs + self.num_sim_outputs
+		num_csv_columns = len(self.data.columns)
+		min_needed_columns = self.simulation_info.num_sim_inputs + self.simulation_info.num_sim_outputs
 		if num_csv_columns < min_needed_columns:
 			raise WCMIError("error: SimulationData.load(): there are fewer columns than the number needed: {0:d} < {1:d}".format(num_csv_columns, min_needed_columns))
 
@@ -604,7 +598,7 @@ class SimulationData():
 			if num_csv_columns != num_needed_columns:
 				# Invalid number of columns, but first check for
 				# optional_gan_n.
-				if not (optional_gan_n and num_csv_columns != min_needed_columns):
+				if not (optional_gan_n and num_csv_columns == min_needed_columns):
 					num_csv_gan_columns = num_csv_columns - min_needed_columns
 					raise WCMIError("error: SimulationData.load(): the number of GAN columns does not equal what was expected: {0:d} != {1:d}".format(num_csv_gan_columns, gan_n))
 
@@ -640,8 +634,8 @@ class SimulationData():
 			raise WCMIError("error: SimulationData.save(): no save path is available!")
 
 		# Fail if there are too few columns (< 19).
-		num_csv_columns = len(self.data.coclumns)
-		min_needed_columns = self.num_sim_inputs + self.num_sim_outputs + self.num_sim_inputs
+		num_csv_columns = len(self.data.columns)
+		min_needed_columns = self.simulation_info.num_sim_inputs + self.simulation_info.num_sim_outputs + self.num_sim_inputs
 		if num_csv_columns < min_needed_columns:
 			raise WCMIError("error: SimulationData.save(): there are fewer columns than the number needed: {0:d} < {1:d}".format(num_csv_columns, min_needed_columns))
 
@@ -651,7 +645,7 @@ class SimulationData():
 			if num_csv_columns != num_needed_columns:
 				# Invalid number of columns, but first check for
 				# optional_gan_n.
-				if not (optional_gan_n and num_csv_columns != min_needed_columns):
+				if not (optional_gan_n and num_csv_columns == min_needed_columns):
 					num_csv_gan_columns = num_csv_columns - min_needed_columns
 					raise WCMIError("error: SimulationData.save(): the number of GAN columns does not equal what was expected: {0:d} != {1:d}".format(num_csv_gan_columns, gan_n))
 

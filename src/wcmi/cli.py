@@ -140,6 +140,8 @@ def verify_options_common(options):
 	"""
 	Perform CLI argument verification common to all actions.
 	"""
+
+	# Check --gan and --dense.
 	if options.dense and options.gan:
 		raise WCMIArgsError("error: both --gan and --dense were specified.")
 	if not options.dense and not options.gan:
@@ -147,8 +149,14 @@ def verify_options_common(options):
 	if not (options.dense != options.gan):
 		# (This is redundant.)
 		raise WCMIArgsError("error: --gan or --dense must be specified, but not both.")
+
+	# Check --gan-n.
 	if options.gan_n < 0:
 		raise WCMIArgsError("error: --gan-n must be provided with a non-negative number, but {0:d} was provided.".format(options.gan_n))
+
+	# Check --load-data.
+	if options.load_data is None:
+		raise WCMIArgsError("error: --load-data .../path/to/data.csv must be specified.")
 
 @add_action
 def train(options):
@@ -160,9 +168,9 @@ def train(options):
 
 	return wnn.interface.train(
 		use_gan=options.gan,
-		load_model=options.load_model,
-		save_model=options.save_model,
-		load_data=options.load_data,
+		load_model_path=options.load_model,
+		save_model_path=options.save_model,
+		load_data_path=options.load_data,
 		gan_n=options.gan_n,
 	)
 
@@ -172,10 +180,10 @@ def run(options):
 
 	return wnn.interface.run(
 		use_gan=options.gan,
-		load_model=options.load_model,
-		save_model=options.save_model,
-		load_data=options.load_data,
-		save_data=options.save_data,
+		load_model_path=options.load_model,
+		save_model_path=options.save_model,
+		load_data_path=options.load_data,
+		save_data_path=options.save_data,
 		gan_n=options.gan_n,
 	)
 

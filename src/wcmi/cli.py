@@ -84,11 +84,11 @@ def get_argument_parser(prog=None):
 
 			Examples:
 			  Train new model dense.pt:
-			    ./main.py train --gan --save-model dense.pt --load-data ../data/4th_dataset_noid.csv
+			    ./main.py train --gan --save-model ../dist/dense.pt --load-data ../data/4th_dataset_noid.csv
 			  Run model dense.pt and output to a new CSV file:
-			    ./main.py run   --gan --load-model dense.pt --load-data ../data/4th_dataset_noid.csv --save-data 4th_dataset_predictions.csv
+			    ./main.py run   --gan --load-model ../dist/dense.pt --load-data ../data/4th_dataset_noid.csv --save-data ../dist/4th_dataset_dense_predictions.csv
 			  Perform additional training on model dense.pt:
-			    ./main.py train --gan --load-model dense.pt --save-model dense.pt --load-data ../data/4th_dataset_noid.csv
+			    ./main.py train --gan --load-model ../dist/dense.pt --save-model ../dist/dense.pt --load-data ../data/4th_dataset_noid.csv
 
 			Training (--load-data) CSV columns (12 + n>=0 total):
 			  7 simulation inputs, then 5 simulation outputs, then optionally forced additional GAN parameters:
@@ -160,12 +160,13 @@ def verify_options_common(options):
 
 @add_action
 def train(options):
+	# Verify command-line arguments.
 	verify_options_common(options)
-	if options.save_data:
+
+	if options.save_data is not None:
 		raise WCMIArgsError("error: the train action doesn't support --save-data.")
 
-	use_gan = options.gan
-
+	# Call the action.
 	return wnn.interface.train(
 		use_gan=options.gan,
 		load_model_path=options.load_model,
@@ -176,12 +177,19 @@ def train(options):
 
 @add_action
 def run(options):
+	# Verify command-line arguments.
 	verify_options_common(options)
 
+	if options.load_model is None:
+		raise WCMIArgsError("error: the run action requires --load-model.")
+
+	if options.save_model is not None:
+		raise WCMIArgsError("error: the run action doesn't support --save-model.")
+
+	# Call the action.
 	return wnn.interface.run(
 		use_gan=options.gan,
 		load_model_path=options.load_model,
-		save_model_path=options.save_model,
 		load_data_path=options.load_data,
 		save_data_path=options.save_data,
 		gan_n=options.gan_n,
@@ -189,8 +197,10 @@ def run(options):
 
 @add_action
 def stats(options):
+	# Verify command-line arguments.
 	verify_options_common(options)
 
+	# Call the action.
 	return wnn.interface.stats()
 
 if __name__ == "__main__":

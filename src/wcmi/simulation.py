@@ -609,7 +609,7 @@ class SimulationData():
 		new_column_names = sorted([name for name in column_names if name.lower().strip() not in liberal_column_names], key=lambda: liberal_column_names.index()) + [name for name in column_names if name.lower().strip() in liberal_column_names]
 		self.data.reindex(new_column_names)
 
-	def save(self, save_data_path=None, verify_gan_n=None, optional_gan_n=None, gan_n=None):
+	def save(self, data=None, save_data_path=None, verify_gan_n=None, optional_gan_n=None, gan_n=None):
 		"""
 		Write self.data, a pandas frame, to a CSV file.
 
@@ -618,6 +618,8 @@ class SimulationData():
 		"""
 
 		# Default arguments.
+		if data is None:
+			data = self.data
 		if save_data_path is None:
 			save_data_path = self.save_data_path
 		if verify_gan_n is None:

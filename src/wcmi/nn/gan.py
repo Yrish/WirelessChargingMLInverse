@@ -10,10 +10,11 @@ See `README.md` for more information.
 import torch.nn as nn
 
 from wcmi.nn import modules
+import wcmi.nn.data
 
 # The default --gan-n value: the default number of additional input neurons to
 # the generator beyond the 5 desired simulation output values.
-default_gan_n = 8
+default_gan_n = wcmi.nn.data.default_gan_n
 
 class GAN(modules.WCMIModule):
 	DEFAULT_GAN_N = default_gan_n
@@ -36,7 +37,7 @@ class GAN(modules.WCMIModule):
 		if gan_n is None:
 			gan_n = default_gan_n
 
-		# Set the neural network.
+		# Set the neural network architecture.
 		self.net = nn.Sequential(
 		)
 

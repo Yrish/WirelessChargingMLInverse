@@ -5,7 +5,13 @@
 Information about the ANSYS simulation.
 """
 
+import csv
+import pandas as pd
+import torch
+
 from wcmi.exception import WCMIError
+
+import wcmi.nn.data
 
 class SimulationInfo():
 	"""
@@ -274,11 +280,11 @@ class SimulationInfo():
 		# sim_input_names and sim_output_names are tuples of strs.
 		if self._sim_input_names is not None:
 			if isinstance(self._sim_input_names, str):
-				raise WCMIError("error: simulation.simplify(): self._sim_input_names should be a list, not a string: `{0:s}'.".format(self._sim_input_names))
+				raise WCMIError("error: SimulationInfo.simplify(): self._sim_input_names should be a list, not a string: `{0:s}'.".format(self._sim_input_names))
 			self._sim_input_names = (*(str(sim_input_name) for sim_input_name in self._sim_input_names),)
 		if self._sim_output_names is not None:
 			if isinstance(self._sim_output_names, str):
-				raise WCMIError("error: simulation.simplify(): self._sim_output_names should be a list, not a string: `{0:s}'.".format(self._sim_output_names))
+				raise WCMIError("error: SimulationInfo.simplify(): self._sim_output_names should be a list, not a string: `{0:s}'.".format(self._sim_output_names))
 			self._sim_output_names = (*(str(sim_output_name) for sim_output_name in self._sim_output_names),)
 
 		# sim_{input,output}_{mins,maxs} are tuples of ints, floats, or Nones.
@@ -316,18 +322,18 @@ class SimulationInfo():
 		for property in needed_properties:
 			attr = "_{0:s}".format(property)
 			if not hasattr(self, attr):
-				raise WCMIError("error: simulation.verify(): the object is missing the needed property `{0:s}'.".format(property))
+				raise WCMIError("error: SimulationInfo.verify(): the object is missing the needed property `{0:s}'.".format(property))
 
 		# Make sure the numbers correspond to name list lengths.
 		if len(self.sim_input_names) != self.num_sim_inputs:
 			raise WCMIError(
-				"error: simulation.verify(): len(self.sim_input_names) != self.num_sim_inputs: {0:d} != {1:s}.".format(
+				"error: SimulationInfo.verify(): len(self.sim_input_names) != self.num_sim_inputs: {0:d} != {1:s}.".format(
 					len(self.sim_input_names), str(self.num_sim_inputs),
 				)
 			)
 		if len(self.sim_output_names) != self.num_sim_outputs:
 			raise WCMIError(
-				"error: simulation.verify(): len(self.sim_output_names) != self.num_sim_outputs: {0:d} != {1:s}.".format(
+				"error: SimulationInfo.verify(): len(self.sim_output_names) != self.num_sim_outputs: {0:d} != {1:s}.".format(
 					len(self.sim_output_names), str(self.num_sim_outputs),
 				)
 			)
@@ -337,28 +343,28 @@ class SimulationInfo():
 		if self.sim_input_mins is not None:
 			if len(self.sim_input_mins) != self.num_sim_inputs:
 				raise WCMIError(
-					"error: simulation.verify(): len(self.sim_input_mins) != self.num_sim_inputs: {0:d} != {1:s}.".format(
+					"error: SimulationInfo.verify(): len(self.sim_input_mins) != self.num_sim_inputs: {0:d} != {1:s}.".format(
 						len(self.sim_input_mins), str(self.num_sim_inputs),
 					)
 				)
 		if self.sim_input_maxs is not None:
 			if len(self.sim_input_maxs) != self.num_sim_inputs:
 				raise WCMIError(
-					"error: simulation.verify(): len(self.sim_input_maxs) != self.num_sim_inputs: {0:d} != {1:s}.".format(
+					"error: SimulationInfo.verify(): len(self.sim_input_maxs) != self.num_sim_inputs: {0:d} != {1:s}.".format(
 						len(self.sim_input_maxs), str(self.num_sim_inputs),
 					)
 				)
 		if self.sim_output_mins is not None:
 			if len(self.sim_output_mins) != self.num_sim_outputs:
 				raise WCMIError(
-					"error: simulation.verify(): len(self.sim_output_mins) != self.num_sim_outputs: {0:d} != {1:s}.".format(
+					"error: SimulationInfo.verify(): len(self.sim_output_mins) != self.num_sim_outputs: {0:d} != {1:s}.".format(
 						len(self.sim_output_mins), str(self.num_sim_outputs)
 					)
 				)
 		if self.sim_output_maxs is not None:
 			if len(self.sim_output_maxs) != self.num_sim_outputs:
 				raise WCMIError(
-					"error: simulation.verify(): len(self.sim_output_maxs) != self.num_sim_outputs: {0:d} != {1:s}.".format(
+					"error: SimulationInfo.verify(): len(self.sim_output_maxs) != self.num_sim_outputs: {0:d} != {1:s}.".format(
 						len(self.sim_output_maxs), str(self.num_sim_outputs)
 					)
 				)
@@ -370,7 +376,7 @@ class SimulationInfo():
 				if min is not None and max is not None:
 					if not min <= max:
 						raise WCMIError(
-							"error: simulation.verify(): simulation input value #{0:d}/#{1:d} (`{2:s}') has a minimum greater than the maximum: {3:d} > {4:d}.".format(
+							"error: SimulationInfo.verify(): simulation input value #{0:d}/#{1:d} (`{2:s}') has a minimum greater than the maximum: {3:d} > {4:d}.".format(
 								idx + 1,
 								self.num_sim_inputs,
 								name,
@@ -384,7 +390,7 @@ class SimulationInfo():
 				if min is not None and max is not None:
 					if not min <= max:
 						raise WCMIError(
-							"error: simulation.verify(): simulation output value #{0:d}/#{1:d} (`{2:s}') has a minimum greater than the maximum: {3:d} > {4:d}.".format(
+							"error: SimulationInfo.verify(): simulation output value #{0:d}/#{1:d} (`{2:s}') has a minimum greater than the maximum: {3:d} > {4:d}.".format(
 								idx + 1,
 								self.num_sim_outputs,
 								name,
@@ -491,3 +497,163 @@ def get_simulation_info():
 
 # The simulation information.
 simulation_info = get_simulation_info()
+
+# For subclassing Tensor c.f.
+# https://discuss.pytorch.org/t/subclassing-torch-tensor/23754
+class SimulationData():
+	# TODO: make load_data_path optional and just set up a pandas frame with no
+	# records if there is no CSV file.
+	"""
+	Subclass of `torch.Tensor` for handling CSV data.
+	"""
+	@staticmethod
+	def __new__(cls, load_data_path, save_data_path=None, simulation_info=None, *args, **kwargs):
+		return super().__new__(cls, *args, **kwargs)
+
+	def __init__(self, load_data_path, save_data_path=None, verify_gan_n=True, optional_gan_n=True, gan_n=None, simulation_info=None, *args, **kwargs):
+		"""
+		Initialize a SimulationData by loading data from a CSV file.
+
+		If the CSV data is expected to have n GAN columns, set gan_n to n (or
+		None for default_gan_n) and verify_gan_n to True.  Otherwise, set
+		verify_gan_n to False.
+
+		If optional_gan_n is True and verify_gan_n is True, then either there
+		can be gan_n GAN columns or zero GAN columns, but no other number of
+		GAN columns.  The default value for optional_gan_n is True.
+		"""
+		super().__init__(*args, **kwargs)
+
+		# Default arguments.
+		if simulation_info is None:
+			simulation_info = get_simulation_info()
+		if gan_n is None:
+			gan_n = wcmi.nn.data.default_gan_n
+
+		# Set attributes.
+		self.load_data_path  = load_data_path
+		self.save_data_path  = save_data_path
+		self.verify_gan_n    = verify_gan_n
+		self.optional_gan_n  = optional_gan_n
+		self.gan_n           = gan_n
+		self.simulation_info = simulation_info
+
+		# Set other attributes.
+		data = None  # Will be set in load().
+
+		# Load the CSV file.
+		self.load(load_data_path)
+
+	def load(self, load_data_path=None, verify_gan_n=None, optional_gan_n=None, gan_n=None):
+		"""
+		Set self.data to a pandas frame containing the CSV data.
+
+		12 columns plus n GAN columns are expected.
+
+		If the CSV data is expected to have n GAN columns, set gan_n to n (or
+		None for default_gan_n) and verify_gan_n to True.  Otherwise, set
+		verify_gan_n to False.
+
+		If optional_gan_n is True and verify_gan_n is True, then either there
+		can be gan_n GAN columns or zero GAN columns, but no other number of
+		GAN columns.  The default value for optional_gan_n is True.
+		"""
+
+		# Default arguments.
+		if load_data_path is None:
+			load_data_path = self.load_data_path
+		if verify_gan_n is None:
+			verify_gan_n = self.verify_gan_n
+		if optional_gan_n is None:
+			optional_gan_n = self.optional_gan_n
+		if gan_n is None:
+			gan_n = self.gan_n
+		if gan_n is None:
+			gan_n = wcmi.nn.data.default_gan_n
+
+		# Read the CSV file.
+		self.data = pd.read_csv(load_data_path)
+
+		# Fail if there are too few columns (< 12).
+		num_csv_columns = len(self.data.coclumns)
+		min_needed_columns = self.num_sim_inputs + self.num_sim_outputs
+		if num_csv_columns < min_needed_columns:
+			raise WCMIError("error: SimulationData.load(): there are fewer columns than the number needed: {0:d} < {1:d}".format(num_csv_columns, min_needed_columns))
+
+		# Fail on any unrecognized columns.
+		valid_names = self.simulation_info.sim_input_names + self.simulation_info.sim_output_names
+		column_names = self.data.columns.values
+		liberal_valid_names  = [name.lower().strip() for name in valid_names]
+		liberal_column_names = [name.lower().strip() for name in column_names]
+		for column_name in self.data.columns.values:
+			liberal_column_name = column_name.lower().strip()
+			if not column_name.lower().strip().startswith("GAN".lower().strip()) and liberal_column_name not in liberal_valid_names:
+				err_msg = "\n".join((
+					"error: SimulationData.load(): unrecognized column name in CSV file: {0:s}".format(
+						column_name,
+					),
+					"",
+					"Valid column names:",
+					*("  - {0:s}".format(repr(sim_input_name)) for sim_input_name in self.sim_input_names),
+				))
+				raise WCMIError(err_msg)
+
+		# If verify_gan_n is provided (as an int), make sure we have 12 + verify_gan_n columns.
+		if verify_gan_n:
+			num_needed_columns = self.simulation_info.num_sim_inputs + self.simulation_info.num_sim_outputs + gan_n
+			if num_csv_columns != num_needed_columns:
+				# Invalid number of columns, but first check for
+				# optional_gan_n.
+				if not (optional_gan_n and num_csv_columns != min_needed_columns):
+					num_csv_gan_columns = num_csv_columns - min_needed_columns
+					raise WCMIError("error: SimulationData.load(): the number of GAN columns does not equal what was expected: {0:d} != {1:d}".format(num_csv_gan_columns, gan_n))
+
+		# Verification is done.  Now just rearrange the columns to match the
+		# order provided by self.simulation_input_names then
+		# self.simulation_output_names if there is a difference.
+		# TODO: clean up a bit; very long lines.
+		new_column_names = sorted([name for name in column_names if name.lower().strip() not in liberal_column_names], key=lambda: liberal_column_names.index()) + [name for name in column_names if name.lower().strip() in liberal_column_names]
+		self.data.reindex(new_column_names)
+
+	def save(self, save_data_path=None, verify_gan_n=None, optional_gan_n=None, gan_n=None):
+		"""
+		Write self.data, a pandas frame, to a CSV file.
+
+		It is expected to have 19 + n>=0 columns (i.e. self.num_sim_outputs
+		additional columns for predictions.)
+		"""
+
+		# Default arguments.
+		if save_data_path is None:
+			save_data_path = self.save_data_path
+		if verify_gan_n is None:
+			verify_gan_n = self.verify_gan_n
+		if optional_gan_n is None:
+			optional_gan_n = self.optional_gan_n
+		if gan_n is None:
+			gan_n = self.gan_n
+		if gan_n is None:
+			gan_n = wcmi.nn.data.default_gan_n
+
+		# Ensure we have somewhere to write to.
+		if save_data_path is None:
+			raise WCMIError("error: SimulationData.save(): no save path is available!")
+
+		# Fail if there are too few columns (< 19).
+		num_csv_columns = len(self.data.coclumns)
+		min_needed_columns = self.num_sim_inputs + self.num_sim_outputs + self.num_sim_inputs
+		if num_csv_columns < min_needed_columns:
+			raise WCMIError("error: SimulationData.save(): there are fewer columns than the number needed: {0:d} < {1:d}".format(num_csv_columns, min_needed_columns))
+
+		# If verify_gan_n is enabled, verify the exact number of GAN columns.
+		if verify_gan_n:
+			num_needed_columns = min_needed_columns + gan_n
+			if num_csv_columns != num_needed_columns:
+				# Invalid number of columns, but first check for
+				# optional_gan_n.
+				if not (optional_gan_n and num_csv_columns != min_needed_columns):
+					num_csv_gan_columns = num_csv_columns - min_needed_columns
+					raise WCMIError("error: SimulationData.save(): the number of GAN columns does not equal what was expected: {0:d} != {1:d}".format(num_csv_gan_columns, gan_n))
+
+		# Write the CSV file.
+		self.data.to_csv(save_data_path)

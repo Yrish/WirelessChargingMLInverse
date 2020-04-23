@@ -92,13 +92,20 @@ def get_argument_parser(prog=None):
 
 			Training (--load-data) CSV columns (12 + n>=0 total):
 			  7 simulation inputs, then 5 simulation outputs, then optionally forced additional GAN parameters:
-			    Iin[A],Iout[A],l[mm],p1[mm],p2[mm],p3[mm],win[mm],kdiff[%%],Bleak[uT],V_PriWind[cm3],V_PriCore[cm3],Pout[W]
+			    Iin[A],Iout[A],l[mm],p1[mm],p2[mm],p3[mm],win[mm],kdiff[%],Bleak[uT],V_PriWind[cm3],V_PriCore[cm3],Pout[W]
 
 			  If the additional --gan-n columns are absent, random values will
 			  be chosen.
 
+			  The column names must be recognized.  The n GAN column names must
+			  begin with "GAN", e.g. "GAN_0", "GAN_1", "GAN_2", etc., or
+			  "GAN_brightness".
+
 			Post-running (--save-data) CSV columns (19 + n>=0 total):
 			  7 simulation inputs, 5 simulation outputs, 7 predicted simulation inputs (model outputs), n>=0 generator parameters (if GAN).
+
+			  The 7 predicted simulation inputs that are output by the model
+			  have a column name prefixed with "pred_".
 
 			(To re-arrange the columns with a numpy permutation, this may be a
 			helpful post: https://stackoverflow.com/a/20265477)

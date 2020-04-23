@@ -29,6 +29,12 @@ class Dense(modules.WCMIModule):
 		# Set attributes.
 		#self.foo = foo
 
-		# Set the neural network.
+		# Set the neural network architecture.
+		# (Copied from Braysen's example.py implementation.)
 		self.net = nn.Sequential(
+			nn.Linear(self.simulation_info.num_sim_outputs, 90),
+			nn.LeakyReLU(0.1),
+			nn.Dropout(p=0.02),
+			nn.Linear(90, simulation_info.num_sim_inputs),
+			nn.LeakyReLU(),
 		)

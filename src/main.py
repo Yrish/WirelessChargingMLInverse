@@ -8,7 +8,6 @@ Simple wrapper around wcmi.main.
 
 import sys, os, os.path
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
-sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'wcmi'))
 
 import wcmi.cli
 

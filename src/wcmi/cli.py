@@ -11,6 +11,11 @@ import os.path
 import sys
 import textwrap
 
+if True:
+	# Let wcmi/cli.py be callable in a standalone directory.
+	import sys, os.path
+	sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 from wcmi.exception import WCMIArgsError
 
 import wcmi.nn as wnn

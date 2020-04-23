@@ -21,6 +21,22 @@ test_loader = torch.utils.data.DataLoader(dataset=test_dataset,
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 
+# constraints:
+# Iin[A]: 1-100
+# Iout[A]: 1-100
+# win [mm]: 1-1000
+# p1[mm]: 3-150
+# p2[mm]: 3-150
+# p3[mm]: 3-150
+# l[mm]: 3-1500
+#
+# V_PriWInd[cm3]: 1-300
+# Vcore[cm3]: 1-10000
+# kdiff[%]: 0.1-40
+# Pout[W]: 1-3000
+# Bleak[uT]: 1-300
+
+# From 7 sim input channels to 5 sim output channels
 class NeuralNet(nn.Module):
 
     def __init__(self):
@@ -28,31 +44,108 @@ class NeuralNet(nn.Module):
         '''
         Exercise - Define the N/w architecture. Use RELU Activation
         '''
-        self.hid1 = nn.Linear(dataset.inputCount, 90)
-        self.hid1_a = nn.LeakyReLU(0.1)
-        self.hid1_d = nn.Dropout(p=0.02)
-        self.output = nn.Linear(90, dataset.outputCount)
-        self.output_a = nn.LeakyReLU()
+        self.net = nn.Sequential(
+            nn.Linear(dataset.inputCount, 90),  # hid1
+            nn.LeakyReLU(0.1),  # hid1_a
+            nn.Dropout(p=0.02),  # hid1_d
+            nn.Linear(90, dataset.outputCount),  # output
+            nn.LeakyReLU(),  # output_a
+            ## 7 simulation inputs: Iin[A}, win[mm], p1[mm], p2[mm], p3[mm], l[mm]
+            #nn.Hardtanh(min_val=[1,1,1,3,3,3,3,],max_val=[100,100,1000,150,150,150,1500,]),
+            ## 5 simulation outputs: V_PriWInd[cm3], Vcore[cm3], kdiff[%], Pout[W], Bleak[uT]
+            ##nn.Hardtanh(min_val=[1,1,0.1,1,1],max_val=[300,10000,40,3000,300,]),
+        )
 
     def forward(self, x):
         '''
         Exercise - Forward Propagate through the layers as defined above. Fill in params in place of ...
         '''
-        x = self.hid1_d(self.hid1_a(self.hid1(x)))
-        x = self.output_a(self.output(x))
+        #x = self.hid1_d(self.hid1_a(self.hid1(x)))
+        #x = self.output_a(self.output(x))
+        x = self.net(x)
         return x
 
-#model = NeuralNet().to(device)
+model = NeuralNet().to(device)
 
-#from invertible_resnet.models import model_utils
-import sys
-import os, os.path
-sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'invertible_resnet'))
+##from invertible_resnet.models import model_utils
+#import sys
+#import os, os.path
+#sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'invertible_resnet'))
+#
+#from invertible_resnet.models import conv_iResNet
+##model = model_utils.ActNorm(7).to(device)
+#input_shape = (7,1,1,)
+#model = conv_iResNet.conv_iresnet_block(input_shape, 9)
 
-from invertible_resnet.models import conv_iResNet
-#model = model_utils.ActNorm(7).to(device)
-input_shape = (7,1,1,)
-model = conv_iResNet.conv_iresnet_block(input_shape, 9)
+#import sys
+#import os, os.path
+#sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'memcnn'))
+#import memcnn  # memcnn/memcnn
+#from memcnn.models.resnet import ResNet, RevBasicBlock
+#block = RevBasicBlock(7, 7)
+#model = ResNet(block=block, layers=4, num_classes=5, channels_per_layer=[7,8,8,5])
+
+
+
+
+
+
+
+
+
+
+if False:
+    import sys
+    import os, os.path
+    sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'memcnn'))
+
+    import torch
+    import torch.nn as nn
+    #import memcnn
+
+    import memcnn  # memcnn/memcnn
+    from memcnn.models.resnet import ResNet, RevBasicBlock
+
+
+    # turn the ExampleOperation invertible using an additive coupling
+    invertible_module = memcnn.AdditiveCoupling(
+        Fm=NeuralNet().to(device),
+        Gm=NeuralNet().to(device),
+    )
+
+    # test that it is actually a valid invertible module (has a valid inverse method)
+    #assert memcnn.is_invertible_module(invertible_module, test_input_shape=(100,7,))
+
+    # wrap our invertible_module using the InvertibleModuleWrapper and benefit from memory savings during training
+    invertible_module_wrapper = memcnn.InvertibleModuleWrapper(fn=invertible_module, keep_input=True, keep_input_inverse=True)
+
+    ## by default the module is set to training, the following sets this to evaluation
+    ## note that this is required to pass input tensors to the model with requires_grad=False (inference only)
+    #invertible_module_wrapper.eval()
+    #
+    ## test that the wrapped module is also a valid invertible module
+    #assert memcnn.is_invertible_module(invertible_module_wrapper, test_input_shape=X.shape)
+    #
+    ## compute the forward pass using the wrapper
+    #Y2 = invertible_module_wrapper.forward(X)
+    #
+    ## the input (X) can be approximated (X2) by applying the inverse method of the wrapper on Y2
+    #X2 = invertible_module_wrapper.inverse(Y2)
+    #
+    ## test that the input and approximation are similar
+    #assert torch.allclose(X, X2, atol=1e-06)
+    model = invertible_module_wrapper
+
+
+
+
+
+
+
+
+
+
+
 
 criterion = nn.L1Loss()
 optimizer = torch.optim.SGD(model.parameters(), lr=learning_rate)

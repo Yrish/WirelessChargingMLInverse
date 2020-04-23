@@ -5,9 +5,10 @@
 wcmi package: WirelessChargingMLInverse
 """
 
-__version__ = '0.1.0'
-
 from wcmi.cli import main
+from wcmi.version import version_str
+
+__version__ = version_str
 
 __all__ = [
 	'main',

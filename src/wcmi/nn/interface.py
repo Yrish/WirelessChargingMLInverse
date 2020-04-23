@@ -6,7 +6,7 @@ Module providing methods to interface with the neural networks provided by this
 package.
 """
 
-from wcmi import gan
+import wcmi.nn.gan as gan
 
 def train(use_gan=True, load_model=None, save_model=None, load_data=None, gan_n=gan.default_gan_n):
 	"""

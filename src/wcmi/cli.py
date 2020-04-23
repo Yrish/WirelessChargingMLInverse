@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 # vim: set noet ft=python :
 
@@ -10,9 +11,11 @@ import os.path
 import sys
 import textwrap
 
-from wcmi import gan
-from wcmi import nn as wnn
 from wcmi.exception import WCMIArgsError
+
+import wcmi.nn as wnn
+import wcmi.nn.interface
+import wcmi.nn.gan as gan
 
 def main(argv=None):
 	"""
@@ -75,8 +78,12 @@ def get_argument_parser(prog=None):
 			Train or run the neural network.
 
 			Examples:
-			  - ./main.py train --save-model dense.pt --load-data ../data/4th_dataset_noid.csv
-			  - ./main.py run   --load-model dense.pt --load-data ../data/4th_dataset_noid.csv --save-data 4th_dataset_predictions.csv
+			  Train new model dense.pt:
+			    ./main.py train --gan --save-model dense.pt --load-data ../data/4th_dataset_noid.csv
+			  Run model dense.pt and output to a new CSV file:
+			    ./main.py run   --gan --load-model dense.pt --load-data ../data/4th_dataset_noid.csv --save-data 4th_dataset_predictions.csv
+			  Perform additional training on model dense.pt:
+			    ./main.py train --gan --load-model dense.pt --save-model dense.pt --load-data ../data/4th_dataset_noid.csv
 
 			Training (--load-data) CSV columns (12 + n>=0 total):
 			  7 simulation inputs, then 5 simulation outputs, then optionally forced additional GAN parameters:
@@ -139,7 +146,7 @@ def train(options):
 
 	use_gan = options.gan
 
-	return wnn.train(
+	return wnn.interface.train(
 		use_gan=options.gan,
 		load_model=options.load_model,
 		save_model=options.save_model,
@@ -151,7 +158,7 @@ def train(options):
 def run(options):
 	verify_options_common(options)
 
-	return wnn.run(
+	return wnn.interface.run(
 		use_gan=options.gan,
 		load_model=options.load_model,
 		save_model=options.save_model,
@@ -164,7 +171,7 @@ def run(options):
 def stats(options):
 	verify_options_common(options)
 
-	return wnn.stats()
+	return wnn.interface.stats()
 
 if __name__ == "__main__":
 	import sys

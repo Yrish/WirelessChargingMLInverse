@@ -6,6 +6,7 @@ The CLI interface, providing main().
 """
 
 import argparse
+import os.path
 import sys
 import textwrap
 
@@ -14,8 +15,6 @@ from wcmi import nn as wnn
 from wcmi.exception import WCMIArgsError
 
 def main(argv=None):
-	# TODO: maybe catch WCMIArgsError and print errors with friendlier
-	# formatting and with print_help().
 	"""
 	Train or run the GAN.
 	"""
@@ -25,15 +24,38 @@ def main(argv=None):
 
 	args = argv[1:]
 
+	try:
+		return cli(args=args)
+	except WCMIArgsError as ex:
+		parser = argument_parser
+		parser.print_usage()
+		if argv is not None and len(argv) >= 1:
+			prog = argv[0]
+			formatted_prog = os.path.basename(prog)
+			print("{0:s}: {1:s}".format(formatted_prog, str(ex)))
+		else:
+			print(str(ex))
+		return
+
+def cli(args=None):
+	"""
+	Process command-line arguments and respond accordingly.
+
+	Note: the argument is `args', not `argv`; it does not include `prog` (e.g.
+	`$0` in a shell, the program name.)
+	"""
+	if args is None:
+		args = sys.argv[1:]
+
 	parser = argument_parser
 	options = parser.parse_args(args)
 
 	if "action" not in options:
-		raise WCMIArgsError("Error: no action specified.  Try passing train, run, or stats.")
+		raise WCMIArgsError("error: no action specified.  Try passing train, run, or stats.")
 	action = options.action
 	if action not in actions:
-		raise WCMIArgsError("Error: unrecognized action `{0:s}'.  Try passing train, run, or stats.".format(action))
-	actions[action](options)
+		raise WCMIArgsError("error: unrecognized action `{0:s}'.  Try passing train, run, or stats.".format(action))
+	return actions[action](options)
 
 def get_argument_parser(prog=None):
 	"""
@@ -100,20 +122,20 @@ def verify_options_common(options):
 	Perform CLI argument verification common to all actions.
 	"""
 	if options.dense and options.gan:
-		raise WCMIArgsError("Error: both --gan and --dense were specified.")
+		raise WCMIArgsError("error: both --gan and --dense were specified.")
 	if not options.dense and not options.gan:
-		raise WCMIArgsError("Error: please pass either --gan to use the GAN or --dense to use the dense model.")
+		raise WCMIArgsError("error: please pass either --gan to use the GAN or --dense to use the dense model.")
 	if not (options.dense != options.gan):
 		# (This is redundant.)
-		raise WCMIArgsError("Error: --gan or --dense must be specified, but not both.")
+		raise WCMIArgsError("error: --gan or --dense must be specified, but not both.")
 	if options.gan_n < 0:
-		raise WCMIArgsError("Error: --gan-n must be provided with a non-negative number, but {0:d} was provided.".format(options.gan_n))
+		raise WCMIArgsError("error: --gan-n must be provided with a non-negative number, but {0:d} was provided.".format(options.gan_n))
 
 @add_action
 def train(options):
 	verify_options_common(options)
 	if options.save_data:
-		raise WCMIArgsError("Error: the train action doesn't support --save-data.")
+		raise WCMIArgsError("error: the train action doesn't support --save-data.")
 
 	use_gan = options.gan
 

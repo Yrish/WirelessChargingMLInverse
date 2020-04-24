@@ -24,6 +24,7 @@ default_status_every_epoch = 10
 default_status_every_sample = 1000
 
 # The default --batch-size value.
+# FIXME: the NN doesn't appear to be used at all for 0?
 default_batch_size = 64
 
 # 'cuda' if a CUDA-enabled GPU is available, otherwise 'cpu'.

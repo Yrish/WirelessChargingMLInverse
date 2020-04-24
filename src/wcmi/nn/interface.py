@@ -70,6 +70,11 @@ def train(
 	)
 	# If CUDA is available, move the model to the GPU.
 	model = model.to(data.device)
+	# TODO: why is this needed?
+	# Fix pytorch model returning NaNs.
+	# c.f.  https://discuss.pytorch.org/t/manually-initialize-parameters/14337/2
+	if load_model_path is None:
+		for p in model.parameters(): p.data.fill_(0)
 
 	# Train the model.
 	if not use_gan:

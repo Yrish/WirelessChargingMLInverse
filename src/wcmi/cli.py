@@ -19,8 +19,10 @@ if True:
 from wcmi.exception import WCMIArgsError
 
 import wcmi.nn as wnn
+import wcmi.nn.data as data
 import wcmi.nn.interface
 import wcmi.nn.gan as gan
+import wcmi.version
 
 def main(argv=None):
 	"""
@@ -52,12 +54,20 @@ def cli(args=None):
 	Note: the argument is `args', not `argv`; it does not include `prog` (e.g.
 	`$0` in a shell, the program name.)
 	"""
+	# Determine the command-line arguments.
 	if args is None:
 		args = sys.argv[1:]
 
+	# Parse arguments.
 	parser = argument_parser
 	options = parser.parse_args(args)
 
+	# Handle --version.
+	if options.version:
+		print(wcmi.version.version_str)
+		return
+
+	# Handle and go to the action.
 	if "action" not in options:
 		raise WCMIArgsError("error: no action specified.  Try passing train, run, or stats.")
 	action = options.action
@@ -121,12 +131,45 @@ def get_argument_parser(prog=None):
 	parser.add_argument("--save-model", type=str, help="(All actions): after training, save the model to this file.")
 	parser.add_argument(
 		"--gan-n", "--gan-n-parameters", type=int, default=gan.default_gan_n,
-		help="(train action): if using the GAN, specify the number of additional GAN generator parameters (default: {0:d}).  Fail when loading CSV file with a different --gan-n setting.".format(gan.default_gan_n),
+		help="(train action): if using the GAN, specify the number of additional GAN generator parameters (default: {0:d}).  Fail when loading CSV file with a different --gan-n setting.".format(
+			gan.default_gan_n
+		),
 	)
 
 	parser.add_argument("--load-data", type=str, help="(All actions): load training data from this CSV file.")
 
 	parser.add_argument("--save-data", type=str, help="(run action): after running the neural network model on the loaded CSV data, output ")
+
+	parser.add_argument(
+		"--num-epochs", type=int, default=data.default_num_epochs,
+		help="(train action): how many times to train this model over the entire dataset (default: {0:d}); 0 to disable.".format(
+			data.default_num_epochs,
+		),
+	)
+
+	parser.add_argument(
+		"--status-every-epoch", type=int, default=data.default_status_every_epoch,
+		help="(train action): output status every n epochs (default: {0:d}); 0 to disable.".format(
+			data.default_status_every_epoch,
+		),
+	)
+
+	parser.add_argument(
+		"--status-every-sample", type=int, default=data.default_status_every_sample,
+		help="(train action): within an epoch whose status is displayed, output status every n samples (default: {0:d}); 0 to disable.".format(
+			data.default_status_every_sample,
+		),
+	)
+
+	parser.add_argument(
+		"--batch-size", type=int, default=data.default_batch_size,
+		help="(train action): specify the batch size to use when training (default: {0:d}).".format(
+			data.default_batch_size,
+		),
+	)
+
+	parser.add_argument("-V", "--version", action="store_true", help="(All actions): Print the current version.")
+
 	return parser
 
 argument_parser = get_argument_parser()
@@ -163,6 +206,9 @@ def train(options):
 	# Verify command-line arguments.
 	verify_options_common(options)
 
+	if options.save_model is None:
+		raise WCMIArgsError("error: the train action requires --save-model.")
+
 	if options.save_data is not None:
 		raise WCMIArgsError("error: the train action doesn't support --save-data.")
 
@@ -173,6 +219,9 @@ def train(options):
 		save_model_path=options.save_model,
 		load_data_path=options.load_data,
 		gan_n=options.gan_n,
+		num_epochs=options.num_epochs,
+		status_every_epoch=options.status_every_epoch,
+		status_every_sample=options.status_every_sample,
 	)
 
 @add_action

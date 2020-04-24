@@ -234,7 +234,7 @@ class SimulationInfo():
 		# Set parameters.
 		self._post_update_auto_simplify = state["post_update_auto_simplify"]
 
-		self._post_update_auto_simplify = post_update_auto_simplify
+		self._post_update_auto_simplify = state["post_update_auto_simplify"]
 		if self._post_update_auto_simplify is None:
 			self._post_update_auto_simplify = True
 

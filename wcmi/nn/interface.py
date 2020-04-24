@@ -431,6 +431,7 @@ def train(
 	else:
 		# TODO
 		print("(To be implemented...)")
+		raise NotImplementedError("error: train: the train action is not yet implemented for --gan.")
 		pass
 		return
 

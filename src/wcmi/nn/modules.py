@@ -52,6 +52,9 @@ class WCMIModule(nn.Module):
 		# We haven't initialized the model yet.
 		self.initialized = False
 
+		# Call the layer setup method.
+		self.initialize_layers()
+
 		# If auto_load_model is true and we have a path, initialize the model.
 		if self.auto_load_model:
 			if self.load_model_path is not None:
@@ -127,6 +130,14 @@ class WCMIModule(nn.Module):
 
 		return result
 
+	def initialize_layers(self):
+		"""
+		Initialize the neural network's layers.
+
+		Subclasses should define this method.
+		"""
+		raise NotImplementedError
+
 	def initialize_parameters(self):
 		"""
 		Initialize the parameters.  Generally this is used when there is no
@@ -134,7 +145,10 @@ class WCMIModule(nn.Module):
 
 		By default, no additional initialization is performed.
 		"""
-		pass
+		# Fix pytorch model returning NaNs.
+		# c.f.  https://discuss.pytorch.org/t/manually-initialize-parameters/14337/2
+		for p in self.parameters():
+			p.data.fill_(0)
 
 	def forward(self, *input):
 		"""

@@ -29,6 +29,7 @@ class Dense(modules.WCMIModule):
 		# Set attributes.
 		#self.foo = foo
 
+	def initialize_layers(self):
 		# Set the neural network architecture.
 		# (Based on from Braysen's example.py implementation.)
 		self.net = nn.Sequential(

@@ -37,8 +37,10 @@ class GAN(modules.WCMIModule):
 		if gan_n is None:
 			gan_n = default_gan_n
 
+	def initialize_layers(self):
 		# Set the neural network architecture.
 		self.net = nn.Sequential(
+			# TODO
 		)
 
 	# Property: gan_n

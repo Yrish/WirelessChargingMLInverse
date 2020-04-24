@@ -94,11 +94,11 @@ def get_argument_parser(prog=None):
 
 			Examples:
 			  Train new model dense.pt:
-			    ./main.py train --gan --save-model ../dist/dense.pt --load-data ../data/4th_dataset_noid.csv
+			    ./main.py train --gan --save-model dist/dense.pt --load-data data/4th_dataset_noid.csv
 			  Run model dense.pt and output to a new CSV file:
-			    ./main.py run   --gan --load-model ../dist/dense.pt --load-data ../data/4th_dataset_noid.csv --save-data ../dist/4th_dataset_dense_predictions.csv
+			    ./main.py run   --gan --load-model dist/dense.pt --load-data data/4th_dataset_noid.csv --save-data dist/4th_dataset_dense_predictions.csv
 			  Perform additional training on model dense.pt:
-			    ./main.py train --gan --load-model ../dist/dense.pt --save-model ../dist/dense.pt --load-data ../data/4th_dataset_noid.csv
+			    ./main.py train --gan --load-model dist/dense.pt --save-model dist/dense.pt --load-data data/4th_dataset_noid.csv
 
 			Training (--load-data) CSV columns (12 + n>=0 total):
 			  7 simulation inputs, then 5 simulation outputs, then optionally forced additional GAN parameters:

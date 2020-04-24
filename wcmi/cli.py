@@ -172,8 +172,8 @@ def get_argument_parser(prog=None):
 			    ./main.py train --gan --load-model dist/dense.pt --save-model dist/dense.pt --load-data data/4th_dataset_noid.csv
 
 			Notes:
-			  (To re-arrange the columns with a numpy permutation, this may be a
-			  helpful post: https://stackoverflow.com/a/20265477)
+			  (To rearrange the columns of an ndarray with a numpy permutation,
+			  this may be a helpful post: https://stackoverflow.com/a/20265477)
 		"""),
 	}
 	parser = argparse.ArgumentParser(**argparse_kwargs)

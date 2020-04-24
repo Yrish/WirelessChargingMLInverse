@@ -325,10 +325,16 @@ def train(
 			else:
 				return fmt
 
+		bold = "\033[1m"
+		white = "\033[37m"
+		clear = "\033[0;0m"
+		#b = bold + white
+		b = white
+		e = clear
 		stat_fmts = (
 			("", None, None),
 			("Last testing MSE   (norm) : {{0:s}} ({{1:{0:s}f}})", last_testing_mse, None),
-			("Last testing RMSE  (norm) : {{0:s}} ({{1:{0:s}f}})", last_testing_mse.sqrt(), None),
+			(b+"Last testing RMSE  (norm) : {{0:s}} ({{1:{0:s}f}})"+e, last_testing_mse.sqrt(), None),
 			("Last training MSE  (norm) : {{0:s}} ({{1:{0:s}f}})", last_training_mse, None),
 			("Last training RMSE (norm) : {{0:s}} ({{1:{0:s}f}})", last_training_mse.sqrt(), None),
 			("", None, None),
@@ -336,7 +342,7 @@ def train(
 			("", None, None),
 			("All labels mean    (norm) : {{0:s}} ({{1:{0:s}f}})", all_labels.mean(0), None),
 			("All labels var     (norm) : {{0:s}} ({{1:{0:s}f}})", all_labels.var(0), None),
-			("All labels stddev  (norm) : {{0:s}} ({{1:{0:s}f}})", all_labels.std(0), None),
+			(b+"All labels stddev  (norm) : {{0:s}} ({{1:{0:s}f}})"+e, all_labels.std(0), None),
 			("", None, None),
 			("All labels min     (norm) : {{0:s}} ({{1:{0:s}f}})", torch.Tensor(np.quantile(all_nplabels, 0, 0)), None),
 			("...1st quartile    (norm) : {{0:s}} ({{1:{0:s}f}})", torch.Tensor(np.quantile(all_nplabels, 0.25, 0)), None),

@@ -177,6 +177,9 @@ def get_argument_parser(prog=None):
 		"""),
 	}
 	parser = argparse.ArgumentParser(**argparse_kwargs)
+
+	parser.add_argument("-V", "--version", action="store_true", help="(All actions): Print the current version.")
+
 	if default_action is None:
 		parser.add_argument("action", type=str, help="Specify what to do: train, run, or stats.")
 	else:
@@ -196,7 +199,7 @@ def get_argument_parser(prog=None):
 
 	parser.add_argument("--load-data", type=str, help="(All actions): load training data from this CSV file.")
 
-	parser.add_argument("--save-data", type=str, help="(run action): after running the neural network model on the loaded CSV data, output ")
+	parser.add_argument("--save-data", type=str, help="(All actions): after running the neural network model on the loaded CSV data, output ")
 
 	parser.add_argument(
 		"--num-epochs", type=int, default=data.default_num_epochs,
@@ -226,7 +229,7 @@ def get_argument_parser(prog=None):
 		),
 	)
 
-	parser.add_argument("-V", "--version", action="store_true", help="(All actions): Print the current version.")
+	parser.add_argument("--output-keep-out-of-bounds", action="store_true", help="(run action): For CSV predictions output only, keep rows with out-of-bounds predictions.")
 
 	return parser
 
@@ -297,6 +300,9 @@ def train(options, parser=argument_parser):
 	if options.save_model is None:
 		raise WCMIArgsError("error: the train action requires --save-model.")
 
+	if options.output_keep_out_of_bounds:
+		raise WCMIArgsError("error: the train action doesn't support --output-keep-out-of-bounds.")
+
 	# Call the action.
 	return wnn.interface.train(
 		use_gan=options.gan,
@@ -334,6 +340,7 @@ def run(options, parser=argument_parser):
 		load_data_path=options.load_data,
 		save_data_path=options.save_data,
 		gan_n=options.gan_n,
+		output_keep_out_of_bounds=options.output_keep_out_of_bounds,
 	)
 
 @add_action
@@ -350,11 +357,13 @@ def stats(options, parser=argument_parser):
 		raise WCMIArgsError("error: the stats action requires --load-data.")
 	if options.save_data is None:
 		raise WCMIArgsError("error: the stats action requires --save-data.")
-
 	if options.load_model is None:
 		raise WCMIArgsError("error: the stats action doesn't support --load-model.")
 	if options.save_model is None:
 		raise WCMIArgsError("error: the stats action doesn't support --save-model.")
+
+	if options.output_keep_out_of_bounds:
+		raise WCMIArgsError("error: the stats action doesn't support --output-keep-out-of-bounds.")
 
 	# Call the action.
 	return wnn.interface.stats()

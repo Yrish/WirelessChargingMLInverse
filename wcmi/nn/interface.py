@@ -438,7 +438,7 @@ def train(
 	# Save the trained model.
 	model.save()
 
-def run(use_gan=True, load_model_path=None, load_data_path=None, save_data_path=None, gan_n=gan.default_gan_n):
+def run(use_gan=True, load_model_path=None, load_data_path=None, save_data_path=None, gan_n=gan.default_gan_n, output_keep_out_of_bounds=False):
 	"""
 	Load the CSV data, pass it through the neural network, and write a new CSV
 	file that includes what the neural network predicted.
@@ -523,8 +523,32 @@ def run(use_gan=True, load_model_path=None, load_data_path=None, save_data_path=
 		columns=output_columns,
 	)
 
+	# Check boundaries.
+	if not output_keep_out_of_bounds:
+		# Get a mask of np.array([True, True, True, False, True, ...]) as to which rows are
+		# valid.
+		input_npmins  = np.repeat(np.array([simulation_data.simulation_info.sim_input_mins]),  npoutput.shape[0], axis=0)
+		input_npmaxs  = np.repeat(np.array([simulation_data.simulation_info.sim_input_maxs]),  npoutput.shape[0], axis=0)
+		min_valid_npoutput = npoutput >= input_npmins
+		max_valid_npoutput = npoutput <= input_npmaxs
+		valid_npoutput = np.logical_and(min_valid_npoutput, max_valid_npoutput)
+		#valid_npoutput_samples = np.apply_along_axis(all, axis=1, arr=valid_npoutput)[:,np.newaxis]  # Reduce rows by "and".
+		valid_npoutput_mask = np.apply_along_axis(all, axis=1, arr=valid_npoutput)  # Reduce rows by "and" and get a flat, 1-D vector.
+
+		# Only keep valid rows in output.
+		old_num_samples = len(output)
+		output = output.iloc[valid_npoutput_mask]
+		new_num_samples = len(output)
+		num_lost_samples = old_num_samples - new_num_samples
+
+		if num_lost_samples <= 0:
+			print("All model predictions are within the minimum and maximum boundaries.")
+		else:
+			print("WARNING: #{0:d}/#{0:d} sample rows have been discarded from the CSV output due to out-of-bounds predictions.".format(num_lost_samples, old_num_samples))
+
 	# Write the output.
 	simulation_data.save(output)
+	print("Wrote CSV output with predictions to `{0:s}'.".format(save_data_path))
 
 def stats():
 	"""

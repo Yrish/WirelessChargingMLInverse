@@ -18,7 +18,7 @@ We construct, straightforwardly, a mostly linear neural that includes dense
 layers.  It is input the simulation output parameters and outputs predicted
 simulation input parameters.  This is the first model that we consider.
 
-## Second approach: GAN based on _
+## Second approach: GAN based.
 
 We compare the accuracy of the first model with that of the second: a GAN.
 

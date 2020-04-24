@@ -44,14 +44,11 @@ def train(
 		raise WCMIError("error: train requires --save-model.../path/to/model.pt to be specified.")
 	if num_epochs < 1:
 		raise WCMIError("error: train requires --num-epochs to be at least 1.")
-	if save_data_path is not None:
-		# TODO
-		raise NotImplementedError("error: train: saving MSE epoch data is not yet implemented.")
 
 	# Read the CSV file.
 	simulation_data = simulation.SimulationData(
 		load_data_path=load_data_path,
-		save_data_path=None,
+		save_data_path=None,  # (This is for CSV prediction output, not MSE data.  Set to None.)
 		verify_gan_n=True,
 		optional_gan_n=True,
 		gan_n=gan_n,
@@ -388,6 +385,45 @@ def train(
 		# Now print the stats.
 		print_stat_fmt_lines(float_str_min_len)
 
+		# Did the user specify to save MSE errors?
+		if save_data_path is not None:
+			mse_columns = ["is_training"] + ["mse_{0:s}".format(column) for column in simulation_data.simulation_info.sim_input_names]
+			# Prepend the "is_training" column as the first.
+			epoch_training_np_mse = epoch_training_mse.numpy()
+			epoch_testing_np_mse = epoch_testing_mse.numpy()
+			testing_mse = np.concatenate(
+				(
+					np.zeros((num_epochs,1,)),
+					epoch_testing_np_mse,
+				),
+				axis=1,
+			)
+			training_mse = np.concatenate(
+				(
+					np.ones((num_epochs,1,)),
+					epoch_training_np_mse,
+				),
+				axis=1,
+			)
+			mse = np.concatenate(
+				(
+					testing_mse,
+					training_mse,
+				),
+				axis=0,
+			)
+			mse_output = pd.DataFrame(
+				data=mse,
+				columns=mse_columns,
+			)
+			# c.f. https://stackoverflow.com/a/41591077
+			mse_output["is_training"] = mse_output["is_training"].astype(int)
+			mse_output.to_csv(save_data_path, index=False)
+
+			print("")
+			print("Wrote MSE errors (testing MSE for each epoch and then training MSE for each epoch) `{0:s}'.".format(save_data_path))
+
+		# We're done.  Catch you later.
 		print("")
 		print("Done training all epochs.")
 		print("Have a good day.")
@@ -494,4 +530,5 @@ def stats():
 	(To be documented...)
 	"""
 	print("(To be implemented...)")
+	raise NotImplementedError("error: stats: the stats action is not yet implemented.")
 	pass

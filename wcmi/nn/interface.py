@@ -7,6 +7,8 @@ package.
 """
 
 import numpy as np
+import os
+import shutil
 import torch
 import torch.nn as nn
 
@@ -305,39 +307,82 @@ def train(
 		print("")
 		print("Done training last epoch.  Preparing statistics...")
 
-		for fmt, tvec in (
-			("", None),
-			("Last testing MSE   (norm) : {0:s} ({1:f})", last_testing_mse),
-			("Last testing RMSE  (norm) : {0:s} ({1:f})", last_testing_mse.sqrt()),
-			("Last training MSE  (norm) : {0:s} ({1:f})", last_training_mse),
-			("Last training RMSE (norm) : {0:s} ({1:f})", last_training_mse.sqrt()),
-			("", None),
-			(
-				"Label column names: {0:s}".format(
-					"<{0:s}>".format(", ".join(["{0:s}".format(column) for column in simulation_data.simulation_info.sim_input_names])),
-				),
-				None,
-			),
-			("", None),
-			("All labels mean    (norm) : {0:s} ({1:f})", all_labels.mean(0)),
-			("All labels var     (norm) : {0:s} ({1:f})", all_labels.var(0)),
-			("All labels stddev  (norm) : {0:s} ({1:f})", all_labels.std(0)),
-			("", None),
-			("All labels min     (norm) : {0:s} ({1:f})", torch.Tensor(np.quantile(all_nplabels, 0, 0))),
-			("...1st quartile    (norm) : {0:s} ({1:f})", torch.Tensor(np.quantile(all_nplabels, 0.25, 0))),
-			("All labels median  (norm) : {0:s} ({1:f})", torch.Tensor(np.quantile(all_nplabels, 0.5, 0))),
-			("...3rd quartile    (norm) : {0:s} ({1:f})", torch.Tensor(np.quantile(all_nplabels, 0.75, 0))),
-			("All labels max     (norm) : {0:s} ({1:f})", torch.Tensor(np.quantile(all_nplabels, 1, 0))),
-		):
-			if tvec is None:
-				print(fmt)
-			else:
-				print(
-					fmt.format(
-						"<{0:s}>".format(", ".join(["{0:f}".format(component) for component in tvec])),
-						tvec.norm(),
-					)
+		def stat_format(fmt, tvec=None, lvec=None, float_str_min_len=15):
+			"""
+			Print a formatting line.  Specify tvec for a tensor vector (norm
+			added) or lvec for a list of strings.
+			"""
+			if tvec is not None:
+				return fmt.format(str(float_str_min_len)).format(
+					"<{0:s}>".format(", ".join(["{{0:{0:s}f}}".format(str(float_str_min_len)).format(component) for component in tvec])),
+					tvec.norm(),
 				)
+			elif lvec is not None:
+				return fmt.format(str(float_str_min_len)).format(
+					"<{0:s}>".format(", ".join(["{{0:>{0:s}s}}".format(str(float_str_min_len)).format(str(component)) for component in lvec])),
+				)
+			else:
+				return fmt
+
+		stat_fmts = (
+			("", None, None),
+			("Last testing MSE   (norm) : {{0:s}} ({{1:{0:s}f}})", last_testing_mse, None),
+			("Last testing RMSE  (norm) : {{0:s}} ({{1:{0:s}f}})", last_testing_mse.sqrt(), None),
+			("Last training MSE  (norm) : {{0:s}} ({{1:{0:s}f}})", last_training_mse, None),
+			("Last training RMSE (norm) : {{0:s}} ({{1:{0:s}f}})", last_training_mse.sqrt(), None),
+			("", None, None),
+			("Label column names        : {{0:s}}", None, simulation_data.simulation_info.sim_input_names),
+			("", None, None),
+			("All labels mean    (norm) : {{0:s}} ({{1:{0:s}f}})", all_labels.mean(0), None),
+			("All labels var     (norm) : {{0:s}} ({{1:{0:s}f}})", all_labels.var(0), None),
+			("All labels stddev  (norm) : {{0:s}} ({{1:{0:s}f}})", all_labels.std(0), None),
+			("", None, None),
+			("All labels min     (norm) : {{0:s}} ({{1:{0:s}f}})", torch.Tensor(np.quantile(all_nplabels, 0, 0)), None),
+			("...1st quartile    (norm) : {{0:s}} ({{1:{0:s}f}})", torch.Tensor(np.quantile(all_nplabels, 0.25, 0)), None),
+			("All labels median  (norm) : {{0:s}} ({{1:{0:s}f}})", torch.Tensor(np.quantile(all_nplabels, 0.5, 0)), None),
+			("...3rd quartile    (norm) : {{0:s}} ({{1:{0:s}f}})", torch.Tensor(np.quantile(all_nplabels, 0.75, 0)), None),
+			("All labels max     (norm) : {{0:s}} ({{1:{0:s}f}})", torch.Tensor(np.quantile(all_nplabels, 1, 0)), None),
+		)
+
+		def stat_fmt_lines(float_str_min_line):
+			"""Given a float_str_min_line value, return formatted stats lines."""
+			return (*(
+				stat_format(*vals, float_str_min_len) for vals in stat_fmts
+			),)
+		def print_stat_fmt_lines(float_str_min_line):
+			"""Given a float_str_min_line value, print formatted stats lines."""
+			for line in stat_fmt_lines(float_str_min_line):
+				print(line)
+
+		# Start at 15 and decrease until the maximimum line length is <=
+		# COLUMNS, then keep decreasing until the number of maximum lengthed
+		# lines changes.
+		#float_str_min_len = 15
+		float_str_min_len = 12
+		if data.auto_size_formatting:
+			cols = None
+			columns, rows = shutil.get_terminal_size((1, 1))
+			if columns > 1:
+				cols = columns
+			if cols is not None:
+				# We know the columns, so we can be more liberal in the number we
+				# start with.  Start at 30.
+				float_str_min_len = 30
+
+			last_max_line_len_count = None
+			# Try decreasing to 0, inclusive.
+			for try_float_str_min_len in range(float_str_min_len, -1, -1):
+				lines = stat_fmt_lines(try_float_str_min_len)
+				max_line_len = max([len(line) for line in lines])
+				max_line_len_count = len([line for line in lines if len(line) >= max_line_len])
+				if cols is None or max_line_len_count <= cols:
+					if last_max_line_len_count is not None and max_line_len_count < last_max_line_len_count:
+						break
+				last_max_line_len_count = max_line_len_count
+				float_str_min_len = try_float_str_min_len
+
+		# Now print the stats.
+		print_stat_fmt_lines(float_str_min_len)
 
 		print("")
 		print("Done training all epochs.")

@@ -50,3 +50,6 @@ if nesterov:
 
 # testing split seed.
 testing_split_seed = 42
+
+# Enable methods that try to automatically size certain groups of text output.
+auto_size_formatting = True

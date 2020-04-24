@@ -23,7 +23,7 @@ import wcmi.simulation as simulation
 
 def train(
 	use_gan=True, load_model_path=None, save_model_path=None,
-	load_data_path=None, gan_n=gan.default_gan_n,
+	load_data_path=None, save_data_path=None, gan_n=gan.default_gan_n,
 	num_epochs=data.default_num_epochs,
 	status_every_epoch=data.default_status_every_epoch,
 	status_every_sample=data.default_status_every_sample,
@@ -44,6 +44,9 @@ def train(
 		raise WCMIError("error: train requires --save-model.../path/to/model.pt to be specified.")
 	if num_epochs < 1:
 		raise WCMIError("error: train requires --num-epochs to be at least 1.")
+	if save_data_path is not None:
+		# TODO
+		raise NotImplementedError("error: train: saving MSE epoch data is not yet implemented.")
 
 	# Read the CSV file.
 	simulation_data = simulation.SimulationData(

@@ -6,6 +6,7 @@ Module providing methods to interface with the neural networks provided by this
 package.
 """
 
+import pandas as pd
 import numpy as np
 import os
 import shutil
@@ -441,8 +442,15 @@ def run(use_gan=True, load_model_path=None, load_data_path=None, save_data_path=
 	num_sim_in_columns     = simulation_data.simulation_info.num_sim_inputs
 	num_sim_in_out_columns = num_sim_in_columns + simulation_data.simulation_info.num_sim_outputs
 
+	#npdata = simulation_data.data.values[:, :num_sim_in_out_columns]  # (No need for a numpy copy.)
+	all_data = torch.tensor(simulation_data.data.values[:, :num_sim_in_out_columns], dtype=torch.float32, device=data.device, requires_grad=False)
+	#all_labels = all_data.view(all_data.shape)[:, :num_sim_in_columns]
+	all_input  = all_data.view(all_data.shape)[:, num_sim_in_columns:num_sim_in_out_columns]
+
 	## Pass the numpy array through the model.
-	npoutput = model(simulation_data.data.values[:,:num_sim_in_columns])
+	with torch.no_grad():
+		all_output = model(all_input)
+	npoutput=all_output.numpy()
 
 	## Reconstruct the Pandas frame with appropriate columns.
 	input_columns = simulation_data.data.columns.values.tolist()
@@ -452,6 +460,17 @@ def run(use_gan=True, load_model_path=None, load_data_path=None, save_data_path=
 	output_columns = input_columns[:]
 	output_columns[num_sim_in_out_columns:num_sim_in_out_columns] = predicted_columns[:]
 
+	## Construct a new npoutput with the 7 new prediction columns added.
+	npdata_extra = simulation_data.data.values
+	expanded_npoutput = np.concatenate(
+		(
+			npdata_extra[:, :num_sim_in_out_columns],
+			npoutput,
+			npdata_extra[:, num_sim_in_out_columns:],
+		),
+		axis=1,
+	)
+
 	if use_gan:
 		# If the input columns lacked GAN columns, then add them now, since the
 		# GAN columns are present.
@@ -459,8 +478,8 @@ def run(use_gan=True, load_model_path=None, load_data_path=None, save_data_path=
 			# No GAN columns.  Add them.
 			output_columns += ["GAN_{0:d}".format(gan_column_num) for gan_column_num in range(gan_n)]
 
-	output = pandas.DataFrame(
-		data=npoutput,
+	output = pd.DataFrame(
+		data=expanded_npoutput,
 		columns=output_columns,
 	)
 

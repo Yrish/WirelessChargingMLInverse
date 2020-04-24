@@ -636,8 +636,8 @@ class SimulationData():
 			raise WCMIError("error: SimulationData.save(): no save path is available!")
 
 		# Fail if there are too few columns (< 19).
-		num_csv_columns = len(self.data.columns)
-		min_needed_columns = self.simulation_info.num_sim_inputs + self.simulation_info.num_sim_outputs + self.num_sim_inputs
+		num_csv_columns = len(data.columns)
+		min_needed_columns = self.simulation_info.num_sim_inputs + self.simulation_info.num_sim_outputs + self.simulation_info.num_sim_inputs
 		if num_csv_columns < min_needed_columns:
 			raise WCMIError("error: SimulationData.save(): there are fewer columns than the number needed: {0:d} < {1:d}".format(num_csv_columns, min_needed_columns))
 
@@ -652,4 +652,5 @@ class SimulationData():
 					raise WCMIError("error: SimulationData.save(): the number of GAN columns does not equal what was expected: {0:d} != {1:d}".format(num_csv_gan_columns, gan_n))
 
 		# Write the CSV file.
-		self.data.to_csv(save_data_path)
+		# (index=False to omit the extra ID column.)
+		data.to_csv(save_data_path, index=False)

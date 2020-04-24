@@ -468,6 +468,10 @@ def run(use_gan=True, load_model_path=None, load_data_path=None, save_data_path=
 		simulation_info=simulation.simulation_info,
 	)
 
+	# Ensure there is at least one sample.
+	if len(simulation_data.data) <= 0:
+		raise WCMIError("error: run requires the CSV data loaded to contain at least one sample.")
+
 	# Load the model.
 	mdl        = gan.GAN          if use_gan else dense.Dense
 	mdl_kwargs = {'gan_n': gan_n} if use_gan else {}
@@ -524,13 +528,15 @@ def run(use_gan=True, load_model_path=None, load_data_path=None, save_data_path=
 	)
 
 	# Check boundaries.
+	input_npmins = np.array(simulation_data.simulation_info.sim_input_mins)
+	input_npmaxs = np.array(simulation_data.simulation_info.sim_input_maxs)
 	if not output_keep_out_of_bounds:
 		# Get a mask of np.array([True, True, True, False, True, ...]) as to which rows are
 		# valid.
-		input_npmins  = np.repeat(np.array([simulation_data.simulation_info.sim_input_mins]),  npoutput.shape[0], axis=0)
-		input_npmaxs  = np.repeat(np.array([simulation_data.simulation_info.sim_input_maxs]),  npoutput.shape[0], axis=0)
-		min_valid_npoutput = npoutput >= input_npmins
-		max_valid_npoutput = npoutput <= input_npmaxs
+		input_npmins_repeated = np.repeat(np.array([input_npmins]), npoutput.shape[0], axis=0)
+		input_npmaxs_repeated = np.repeat(np.array([input_npmaxs]), npoutput.shape[0], axis=0)
+		min_valid_npoutput = npoutput >= input_npmins_repeated
+		max_valid_npoutput = npoutput <= input_npmaxs_repeated
 		valid_npoutput = np.logical_and(min_valid_npoutput, max_valid_npoutput)
 		#valid_npoutput_samples = np.apply_along_axis(all, axis=1, arr=valid_npoutput)[:,np.newaxis]  # Reduce rows by "and".
 		valid_npoutput_mask = np.apply_along_axis(all, axis=1, arr=valid_npoutput)  # Reduce rows by "and" and get a flat, 1-D vector.
@@ -543,8 +549,29 @@ def run(use_gan=True, load_model_path=None, load_data_path=None, save_data_path=
 
 		if num_lost_samples <= 0:
 			print("All model predictions are within the minimum and maximum boundaries.")
+			print("")
 		else:
 			print("WARNING: #{0:d}/#{0:d} sample rows have been discarded from the CSV output due to out-of-bounds predictions.".format(num_lost_samples, old_num_samples))
+			print("")
+
+	# Make sure the output isn't all the same.
+	if len(npoutput) >= 2:
+		npoutput_means = np.apply_along_axis(np.std, axis=0, arr=npoutput)
+		npoutput_stds = np.apply_along_axis(np.std, axis=0, arr=npoutput)
+		# Warn if the std is <= this * (max_bound - min_bound).
+		std_warn_threshold = 0.1
+		num_warnings = 0
+		for idx, name in enumerate(simulation_data.data.columns.values[:simulation_data.simulation_info.num_sim_inputs]):
+			std = npoutput_stds[idx]
+			this_threshold = std_warn_threshold * (input_npmaxs[idx] - input_npmins[idx])
+			if std <= 0.0:
+				print("WARNING: all predictions for simulation input parameter #{0:d} (`{1:s}`) are the same!  Prediction: {2:f}.".format(idx + 1, name, npoutput[0][idx]))
+				num_warnings += 1
+			elif std <= this_threshold:
+				print("WARNING: there is little variance in the predictions for simulation input parameter #{0:d} (`{1:s}`): std <= this_threshold: {2:f} <= {3:f}.".format(idx + 1, name, std, this_threshold))
+				num_warnings += 1
+		if num_warnings >= 1:
+			print("")
 
 	# Write the output.
 	simulation_data.save(output)

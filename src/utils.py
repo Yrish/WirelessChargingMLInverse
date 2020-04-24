@@ -4,12 +4,16 @@ from torch import from_numpy
 import numpy as np
 
 class Data(Dataset):
-    def __init__(self, csv_path: str = '../data/data.csv', startingIndex: int = 1, inputCount: int = 7, switchInputAndOutput: bool = False) -> "Data":
+    def __init__(self, csv_path: str = '../data/4th_dataset.csv', startingIndex: int = 1, inputCount: int = 7, switchInputAndOutput: bool = False) -> "Data":
         self.inputCount: int = inputCount
         self.startingIndex: int = startingIndex
         self.switchInputAndOutput: bool = switchInputAndOutput
         self.data = pd.read_csv(csv_path)
         self.outputCount = self.data.count(axis=1).iloc[0] - startingIndex - inputCount
+        if switchInputAndOutput:
+            tmp = self.outputCount
+            self.outputCount = self.inputCount
+            self.inputCount = tmp
 
     def __len__(self):
         return len(self.data)
@@ -20,8 +24,9 @@ class Data(Dataset):
         input = from_numpy(np.array(self.data.iloc[idx, startingIndex:inputEndIndex])).float()
         output = from_numpy(np.array(self.data.iloc[idx, inputEndIndex:])).float()
         if self.switchInputAndOutput:
-            return output, input
-        return input, output
+            return input, output
+        return output, input
+
 
 
 if __name__ == '__main__':

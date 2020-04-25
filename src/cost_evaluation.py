@@ -14,29 +14,79 @@ def random_in_range(minimum, maximum):
     return random.random() * (maximum - minimum) + minimum
 
 generators = [
-    lambda: random_in_range(10, 40),
-    lambda: random_in_range(10, 40),
-    lambda: random_in_range(400, 700),
-    lambda: random_in_range(10, 60),
-    lambda: random_in_range(10, 60),
-    lambda: random_in_range(10, 60),
-    lambda: random_in_range(100, 700),
-    lambda: random_in_range(0, 10),
-    lambda: random_in_range(0, 15),
-    lambda: random_in_range(1, 150),
-    lambda: random_in_range(1, 6000),
+    lambda: random_in_range(1, 100),
+    lambda: random_in_range(1, 100),
+    lambda: random_in_range(1, 1000),
+    lambda: random_in_range(3, 150),
+    lambda: random_in_range(3, 150),
+    lambda: random_in_range(3, 150),
+    lambda: random_in_range(3, 1500),
+    lambda: random_in_range(1, 300),
     lambda: random_in_range(1, 10000),
+    lambda: random_in_range(0.1, 40),
+    lambda: random_in_range(1, 3000),
+    lambda: random_in_range(1, 300),
 ]
 
+def isPositive(num):
+    return num > 0
+
+impossible = [
+    isPositive,
+    isPositive,
+    isPositive,
+    isPositive,
+    isPositive,
+    isPositive,
+    isPositive,
+    isPositive,
+    isPositive,
+    isPositive,
+    isPositive,
+    isPositive,
+]
+
+def betweenInclusive(minimum, maximum):
+    return lambda x: x >= minimum and x <= maximum
+
+restricted = [
+    betweenInclusive(1, 100),
+    betweenInclusive(1, 100),
+    betweenInclusive(1, 1000),
+    betweenInclusive(3, 150),
+    betweenInclusive(3, 150),
+    betweenInclusive(3, 150),
+    betweenInclusive(3, 1500),
+    betweenInclusive(1, 300),
+    betweenInclusive(1, 10000),
+    betweenInclusive(0.1, 40),
+    betweenInclusive(1, 3000),
+    betweenInclusive(1, 300),
+]
+
+print(len(headers))
+print(len(restricted))
+print(len(impossible))
+
 def getTestData(model, count):
+    restrictedCount = 0
+    impossibleCount = 0
     testInput = []
     output = []
-    for i in range(count):
+    while len(output) < count:
         inp = [generators[x]() for x in range(7, 12)]
         out = model(from_numpy(np.array(inp, dtype='f')))
-        out = [abs(item.item()) for item in list(out.detach())]
+        out = [item.item() for item in list(out.detach())]
+        for i in range(len(out)):
+            if impossible[i](out[i]):
+                impossibleCount += 1
+                continue
+            if restricted[i](out[i]):
+                restrictedCount += 1
+                continue
         testInput.append(inp)
         output.append(out)
+    print("Generated {} usable outputs, {} were restricted, {} were impossible".format(len(output), restrictedCount, impossibleCount))
     with open("simulationOut.csv", "w") as simulationOut:
         simulationOut.write(",".join(headers[7:12]) + "\n")
         for i in range(len(testInput)):
@@ -52,7 +102,7 @@ def getTestData(model, count):
             allData.write(",".join([str(s) for s in testInput[i]]) + "\n")
 
 if __name__ == '__main__':
-    modelName = "../model.model"
+    modelName = "../saves/biasCost/error_1449646.model"
     model = NeuralNet()
     model.load_state_dict(load(modelName))
     getTestData(model, 100)

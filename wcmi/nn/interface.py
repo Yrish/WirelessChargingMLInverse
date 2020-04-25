@@ -591,6 +591,9 @@ def run(use_gan=True, load_model_path=None, load_data_path=None, save_data_path=
 		num_warnings = 0
 		unique_warn_threshold = 25
 		for idx, name in enumerate(simulation_data.data.columns.values[:simulation_data.simulation_info.num_sim_inputs]):
+			if num_warnings >= 1:
+				print("")
+
 			std = npoutput_stds[idx]
 			this_threshold = std_warn_threshold * (input_npmaxs[idx] - input_npmins[idx])
 			if std <= 0.0:
@@ -599,21 +602,22 @@ def run(use_gan=True, load_model_path=None, load_data_path=None, save_data_path=
 			elif std <= this_threshold:
 				print("WARNING: there is little variance in the predictions for simulation input parameter #{0:d} (`{1:s}`): std <= this_threshold: {2:f} <= {3:f}.".format(idx + 1, name, std, this_threshold))
 				num_warnings += 1
-			else:
-				# This may be inefficient, but count unique values and warn if
-				# there are few.
-				col = npoutput[:,idx]
-				unique = set(npoutput[:,idx].tolist())
-				if len(unique) <= unique_warn_threshold:
-					print("WARNING: there are few unique values (#{0:d}) for predictions for simulation input parameter #{1:d} (`{2:s}`):".format(
-						len(unique), idx + 1, name
-					))
-					for val in sorted(list(unique)):
-						count = len([x for x in col if math.isclose(x, val)])
-						if count > 1:
-							print("  {0:s} (x{1:d})".format(str(val), count))
-						else:
-							print("  {0:s}".format(str(val)))
+
+			# This may be inefficient, but count unique values and warn if
+			# there are few.
+			col = npoutput[:,idx]
+			unique = set(npoutput[:,idx].tolist())
+			if len(unique) <= unique_warn_threshold:
+				print("WARNING: there are few unique values (#{0:d}) for predictions for simulation input parameter #{1:d} (`{2:s}`):".format(
+					len(unique), idx + 1, name
+				))
+				num_warnings += 1
+				for val in sorted(list(unique)):
+					count = len([x for x in col if math.isclose(x, val)])
+					if count > 1:
+						print("  {0:s} (x{1:d})".format(str(val), count))
+					else:
+						print("  {0:s}".format(str(val)))
 		if num_warnings >= 1:
 			print("")
 

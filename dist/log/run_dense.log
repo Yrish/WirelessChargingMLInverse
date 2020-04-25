@@ -1,0 +1,38 @@
+Logging enabled.
+./wcmi.py run --dense --load-model=dist/dense.pt --load-data=data/4th_dataset_noid.csv --save-data=dist/4th_dataset_dense_predictions.csv --log=dist/log/run_dense.log --log-truncate
+All model predictions are within the minimum and maximum boundaries.
+
+WARNING: there are few unique values (#3) for predictions for simulation input parameter #1 (`Iin[A]`):
+  10.861142 x3,348
+  35.805527 x2,978
+  34.902225
+
+WARNING: there is little variance in the predictions for simulation input parameter #2 (`Iout[A]`): std <= this_threshold: 0.626999 <= 9.900000.
+WARNING: there are few unique values (#2) for predictions for simulation input parameter #2 (`Iout[A]`):
+  10.861142 x6,323
+  35.805527 x4
+
+WARNING: there is little variance in the predictions for simulation input parameter #3 (`l[mm]`): std <= this_threshold: 15.086020 <= 149.700000.
+WARNING: there are few unique values (#2) for predictions for simulation input parameter #3 (`l[mm]`):
+  1063.6742 x6,323
+  463.49515 x4
+
+WARNING: there are few unique values (#2) for predictions for simulation input parameter #4 (`p1[mm]`):
+  17.34751  x3,348
+  74.60128  x2,979
+
+WARNING: there is little variance in the predictions for simulation input parameter #5 (`p2[mm]`): std <= this_threshold: 1.267291 <= 14.700000.
+WARNING: there are few unique values (#2) for predictions for simulation input parameter #5 (`p2[mm]`):
+  76.10492  x6,324
+  17.892233 x3
+
+WARNING: there are few unique values (#2) for predictions for simulation input parameter #6 (`p3[mm]`):
+  76.10492  x3,347
+  17.892233 x2,980
+
+WARNING: there is little variance in the predictions for simulation input parameter #7 (`win[mm]`): std <= this_threshold: 37.396557 <= 99.900000.
+WARNING: there are few unique values (#2) for predictions for simulation input parameter #7 (`win[mm]`):
+  125.0428  x6,275
+  539.2531  x52
+
+Wrote CSV output with predictions to `dist/4th_dataset_dense_predictions.csv'.

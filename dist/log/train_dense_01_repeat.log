@@ -1,0 +1,20 @@
+Logging enabled.
+./wcmi.py train --dense --load-model=dist/dense.pt --load-data=data/4th_dataset_noid.csv --save-model=dist/dense.pt --save-data=dist/4th_dataset_dense_mse.csv --batch-size=64 --num-epochs=100 --log=./dist/log/train_dense_01_repeat.log --log-truncate
+device: cpu
+
+Beginning epoch #1/100.
+  Beginning sample #1/6,327 (epoch #1/100).
+    MSE loss, mean of columns: 38,568.656250
+  Beginning sample #1,025/6,327 (epoch #1/100).
+    MSE loss, mean of columns: 33,370.851562
+  Beginning sample #2,049/6,327 (epoch #1/100).
+    MSE loss, mean of columns: 37,233.148438
+  Beginning sample #3,009/6,327 (epoch #1/100).
+    MSE loss, mean of columns: 23,937.447266
+  Beginning sample #4,033/6,327 (epoch #1/100).
+    MSE loss, mean of columns: 39,774.523438
+  Beginning sample #5,057/6,327 (testing phase) (epoch #1/100).
+    MSE loss, mean of columns: 40,842.851562
+  Beginning sample #6,017/6,327 (testing phase) (epoch #1/100).
+    MSE loss, mean of columns: 38,041.253906
+Done training epoch #1/100 (testing MSE norm (mean) vs. training MSE norm (mean): 187,226.390625 (35,392.925781) vs. 190,391.968750 (35,954.035156) (lower is more accurate)).

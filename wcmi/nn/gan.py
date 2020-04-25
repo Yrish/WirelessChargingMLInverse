@@ -9,7 +9,6 @@ See `README.md` for more information.
 
 from enum import Enum
 
-import torch
 import torch.nn as nn
 
 from wcmi.nn import modules

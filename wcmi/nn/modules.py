@@ -11,6 +11,7 @@ import torch.nn as nn
 import sys
 
 from wcmi import simulation
+from wcmi.log import logger
 
 import wcmi.nn.data as data
 import wcmi.version
@@ -130,7 +131,7 @@ class WCMIModule(nn.Module):
 		}
 		return torch.save(checkpoint, save_model_path)
 
-	def load(self, load_model_path=None, update_load_model_path=True, error_version=True, warn_version=True):
+	def load(self, load_model_path=None, update_load_model_path=True, error_version=True, warn_version=True, logger=logger):
 		"""
 		Load a pytorch model.
 
@@ -177,7 +178,7 @@ class WCMIModule(nn.Module):
 			if error_version:
 				raise WCMIError("error: {0:s}".format(msg))
 			if warning_version:
-				print("warning: {0:s}".format(msg), file=sys.stderr)
+				logger.warning("warning: {0:s}".format(msg), file=sys.stderr)
 
 		return result
 

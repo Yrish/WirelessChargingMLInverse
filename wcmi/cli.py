@@ -7,6 +7,8 @@ The CLI interface, providing main().
 """
 
 import argparse
+import logging
+import logging.handlers
 import os.path
 import shlex
 import sys
@@ -18,7 +20,9 @@ if True:
 	sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from wcmi.exception import WCMIArgsError
+from wcmi.log import logger
 
+import wcmi.log
 import wcmi.nn as wnn
 import wcmi.nn.data as data
 import wcmi.nn.interface
@@ -28,7 +32,7 @@ import wcmi.version
 # Set default_action to None to require an action when none is provided.
 default_action = "default"
 
-def main(argv=None):
+def main(argv=None, logger=logger):
 	"""
 	Train or run the GAN.
 	"""
@@ -39,7 +43,7 @@ def main(argv=None):
 	args = argv[1:]
 
 	try:
-		return cli(args=args)
+		return cli(args=args, argv=argv, logger=logger)
 	except WCMIArgsError as ex:
 		if False:
 			parser = argument_parser
@@ -47,10 +51,10 @@ def main(argv=None):
 			if argv is not None and len(argv) >= 1:
 				prog = argv[0]
 				formatted_prog = os.path.basename(prog)
-				print("{0:s}: {1:s}".format(formatted_prog, str(ex)))
+				logger.error("{0:s}: {1:s}".format(formatted_prog, str(ex)))
 			else:
-				print(str(ex))
-			return
+				logger.error(str(ex))
+			sys.exit(2)
 		else:
 			parser = argument_parser
 			err_msg = str(ex)
@@ -62,16 +66,22 @@ def main(argv=None):
 					err_msg = err_msg[len(remove_prefix):]
 			parser.error(err_msg)
 
-def cli(args=None, parser=None):
+def cli(args=None, argv=None, parser=None, logger=logger):
 	"""
 	Process command-line arguments and respond accordingly.
+
+	Optionally process command-line arguments without the program name instead
+	of the default by setting `args`.  `args` is prefered to `argv`, which
+	includes the program name.
 
 	Note: the argument is `args', not `argv`; it does not include `prog` (e.g.
 	`$0` in a shell, the program name.)
 	"""
 	# Determine the command-line arguments.
+	if argv is None:
+		argv = sys.argv[:]
 	if args is None:
-		args = sys.argv[1:]
+		args = argv[1:]
 	if parser is None:
 		parser = argument_parser
 
@@ -87,13 +97,44 @@ def cli(args=None, parser=None):
 	# Parse arguments.
 	options = parser.parse_args(args)
 
+	# Handle --log, --log-truncate, --verbose, and --no-color.
+	if not options.no_color:
+		for handler in [wcmi.log.stdout_handler, wcmi.log.stderr_handler]:
+			if handler is not None:
+				handler.setFormatter(wcmi.log.console_formatter)
+
+	if options.verbose:
+		wcmi.log.verbose(logger=logger)
+
+	if options.log is None:
+		if options.log_truncate:
+			raise WCMIArgsError("error: --log-truncate requires --log.")
+		if options.log_timestamp:
+			raise WCMIArgsError("error: --log-timestamp requires --log.")
+
+	if options.log is not None:
+		log_handler_kwargs = {
+			**dict(
+				mode="a" if not options.log_truncate else "w",
+			),
+		}
+		log_handler = logging.handlers.WatchedFileHandler(
+			options.log,
+			**log_handler_kwargs,
+		)
+		log_handler.setFormatter(wcmi.log.default_formatter if not options.log_timestamp else wcmi.log.timestamped_formatter)
+		logger.addHandler(log_handler)
+
+	logger.debug("Logging enabled.")
+	logger.debug(" ".join(shlex.quote(arg) for arg in argv))
+
 	# Handle and go to the action.
 	if "action" not in options:
 		raise WCMIArgsError("error: no action specified.  Try passing train, run, or stats.")
 	action = options.action
 	if action not in actions:
 		raise WCMIArgsError("error: unrecognized action `{0:s}'.  Try passing train, run, or stats.".format(action))
-	return actions[action](options, parser=parser)
+	return actions[action](options, parser=parser, logger=logger)
 
 def get_argument_parser(prog=None):
 	"""
@@ -120,7 +161,7 @@ def get_argument_parser(prog=None):
 			    Optionally, perform additional training on a pretrained model
 			    providing a path to an already saved model.
 
-			    Optionally, save epoch MSEs CSV data (not output data) to the
+			    Optionally, save epoch loss CSV data (not output data) to the
 			    --save-data path.
 
 			    Note: for training, --save-data outputs MSE accuracy data, not
@@ -140,36 +181,49 @@ def get_argument_parser(prog=None):
 			    Run a typical sequence of train, run, and stats commands.
 
 			CSV formats:
-			  There are recognized CSV formats: input data (12 + n columns),
-			  output data (17 + n columns, with 7 additional model output
-			  prediction columns), and epoch MSE data.
+			  There are 3 recognized CSV formats: input data (12 + n columns),
+			  prediction data (17 + n columns, with 7 additional model output
+			  prediction columns; input plus predictions), and (training/epoch)
+			  loss data.
 
-			  More details about these CSV formats are provided below:
+			  Here are more details about these CSV formats:
 
-			Training (--load-data) CSV columns (12 + n>=0 total):
-			  7 simulation inputs, then 5 simulation outputs, then optionally forced additional GAN parameters:
-			    Iin[A],Iout[A],l[mm],p1[mm],p2[mm],p3[mm],win[mm],kdiff[%],Bleak[uT],V_PriWind[cm3],V_PriCore[cm3],Pout[W]
+			  Input CSV data (train --load-data or run --load-data): 12 + n>=0 total columns:
+			    7 simulation inputs, then 5 simulation outputs, then optionally forced additional GAN parameters:
+			      Iin[A],Iout[A],l[mm],p1[mm],p2[mm],p3[mm],win[mm],kdiff[%],Bleak[uT],V_PriWind[cm3],V_PriCore[cm3],Pout[W]
 
-			  If the additional --gan-n columns are absent, random values will
-			  be chosen.
+			    If the additional --gan-n columns are absent, random values will
+			    be chosen.
 
-			  The column names must be recognized.  The n GAN column names must
-			  begin with "GAN", e.g. "GAN_0", "GAN_1", "GAN_2", etc., or
-			  "GAN_brightness".
+			    The column names must be recognized.  The n GAN column names must
+			    begin with "GAN", e.g. "GAN_0", "GAN_1", "GAN_2", etc., or
+			    "GAN_brightness".
 
-			Post-running (--save-data) CSV columns (19 + n>=0 total):
-			  7 simulation inputs, 5 simulation outputs, 7 predicted simulation inputs (model outputs), n>=0 generator parameters (if GAN).
+			  Prediction CSV (run --save-data or stats --load-data): 19 + n>=0 total columns:
+			    7 simulation inputs, 5 simulation outputs, 7 predicted simulation inputs (model outputs), n>=0 generator parameters (if GAN).
 
-			  The 7 predicted simulation inputs that are output by the model
-			  have a column name prefixed with "pred_".
+			    The 7 predicted simulation inputs that are output by the model
+			    have a column name prefixed with "pred_".
+
+			  Loss CSV (train --save-data or stats --load-data): variable column count:
+			    The column count depends on the model.  See documentation or
+			    comments and code in wcmi/nn/interface.py for more information.
 
 			Examples:
 			  Train new model dense.pt:
-			    ./main.py train --gan --load-data data/4th_dataset_noid.csv --save-model dist/dense.pt
+			    ./wcmi.py train --dense --load-data data/4th_dataset_noid.csv --save-model dist/dense.pt
 			  Run model dense.pt and output to a new CSV file:
-			    ./main.py run   --gan --load-model dist/dense.pt --load-data data/4th_dataset_noid.csv --save-data dist/4th_dataset_dense_predictions.csv
+			    ./wcmi.py run   --dense --load-model dist/dense.pt --load-data data/4th_dataset_noid.csv --save-data dist/4th_dataset_dense_predictions.csv
 			  Perform additional training on model dense.pt:
-			    ./main.py train --gan --load-model dist/dense.pt --save-model dist/dense.pt --load-data data/4th_dataset_noid.csv
+			    ./wcmi.py train --dense --load-model dist/dense.pt --save-model dist/dense.pt --load-data data/4th_dataset_noid.csv
+
+			More complete examples:
+			  Train new model dense.pt:
+			    ./wcmi.py train --dense --load-data=data/4th_dataset_noid.csv --save-model=dist/dense.pt --save-data=dist/4th_dataset_dense_mse.csv --batch-size=64 --num-epochs=100 --log=dist/log/train_dense_00_initial.log --log-truncate
+			  Perform additional training on dense.pt:
+			    ./wcmi.py train --dense --load-model=dist/dense.pt --load-data=data/4th_dataset_noid.csv --save-model=dist/dense.pt --save-data=dist/4th_dataset_dense_mse.csv --batch-size=64 --num-epochs=100 --log=./dist/log/train_dense_01_repeat.log --log-truncate
+			  Run model dense.pt and output to a new CSV file:
+			    ./wcmi.py run --dense --load-model=dist/dense.pt --load-data=data/4th_dataset_noid.csv --save-data=dist/4th_dataset_dense_predictions.csv --log=dist/log/run_dense.log --log-truncate
 
 			Notes:
 			  (To rearrange the columns of an ndarray with a numpy permutation,
@@ -178,7 +232,13 @@ def get_argument_parser(prog=None):
 	}
 	parser = argparse.ArgumentParser(**argparse_kwargs)
 
-	parser.add_argument("-V", "--version", action="store_true", help="(All actions): Print the current version.")
+	parser.add_argument("-V", "--version", action="store_true", help="(All actions): print the current version.")
+	parser.add_argument("-v", "--verbose", action="store_true", help="(All actions): increase verbosity: print more messages to standard output.")
+	parser.add_argument("--no-color", action="store_true", help="(All actions): disable coloring console output.")
+
+	parser.add_argument("--log", type=str, help="(All actions): copy all output to the given log file, by default appending to it.")
+	parser.add_argument("--log-truncate", action="store_true", help="(All actions): overwrite existing log files.")
+	parser.add_argument("--log-timestamp", action="store_true", help="(All actions): include timestamps in log files.")
 
 	if default_action is None:
 		parser.add_argument("action", type=str, help="Specify what to do: train, run, or stats.")
@@ -229,7 +289,20 @@ def get_argument_parser(prog=None):
 		),
 	)
 
-	parser.add_argument("--output-keep-out-of-bounds", action="store_true", help="(run action): For CSV predictions output only, keep rows with out-of-bounds predictions.")
+	parser.add_argument(
+		"--learning-rate", type=int, default=data.default_learning_rate,
+		help="(train action): specify the learning rate that the optimizer should use (default: {0:f}).".format(
+			data.default_learning_rate,
+		),
+	)
+
+	parser.add_argument(
+		"--gan-force-fixed-gen-params",
+		action="store_true",
+		help="(train --gan action): When training GAN data, instead of using random generation parameters, use the fixed parameters provided by the input CSV data."
+	)
+
+	parser.add_argument("--output-keep-out-of-bounds-samples", action="store_true", help="(run action): For CSV predictions output only, keep rows with out-of-bounds predictions.")
 
 	return parser
 
@@ -259,9 +332,17 @@ def verify_common_options(options):
 	Perform CLI argument verification common to all actions.
 	"""
 
+	# Ensure multiple models are not specified at the same time.
+	if options.dense and options.gan:
+		raise WCMIArgsError("error: both --gan and --dense were specified.")
+
 	# Check --gan-n.
 	if options.gan_n < 0:
 		raise WCMIArgsError("error: --gan-n must be provided with a non-negative number, but {0:d} was provided.".format(options.gan_n))
+
+	# Check --gan-force-fixed-gen-params is specified with --gan.
+	if options.gan_force_fixed_gen_params and not options.gan:
+		raise WCMIArgsError("error: --gan-force-fixed-gen-params requires --gan.")
 
 def verify_model_options(options):
 	"""
@@ -269,10 +350,12 @@ def verify_model_options(options):
 	"""
 
 	# Check --gan and --dense.
-	if options.dense and options.gan:
-		raise WCMIArgsError("error: both --gan and --dense were specified.")
+
+	# Ensure at least one model is specified.
 	if not options.dense and not options.gan:
 		raise WCMIArgsError("error: please pass either --gan to use the GAN or --dense to use the dense model.")
+
+	# Ensure --dense iff not --gan.
 	if not (options.dense != options.gan):
 		# (This is redundant.)
 		raise WCMIArgsError("error: --gan or --dense must be specified, but not both.")
@@ -287,7 +370,7 @@ def verify_load_data_options(options):
 		raise WCMIArgsError("error: --load-data .../path/to/data.csv must be specified.")
 
 @add_action
-def train(options, parser=argument_parser):
+def train(options, parser=argument_parser, logger=logger):
 	"""
 	Call the train action after some argument verification.
 	"""
@@ -300,8 +383,8 @@ def train(options, parser=argument_parser):
 	if options.save_model is None:
 		raise WCMIArgsError("error: the train action requires --save-model.")
 
-	if options.output_keep_out_of_bounds:
-		raise WCMIArgsError("error: the train action doesn't support --output-keep-out-of-bounds.")
+	if options.output_keep_out_of_bounds_samples:
+		raise WCMIArgsError("error: the train action doesn't support --output-keep-out-of-bounds-samples.")
 
 	# Call the action.
 	return wnn.interface.train(
@@ -314,10 +397,14 @@ def train(options, parser=argument_parser):
 		num_epochs=options.num_epochs,
 		status_every_epoch=options.status_every_epoch,
 		status_every_sample=options.status_every_sample,
+		batch_size=options.batch_size,
+		learning_rate=options.learning_rate,
+		gan_force_fixed_gen_params=options.gan_force_fixed_gen_params,
+		logger=logger,
 	)
 
 @add_action
-def run(options, parser=argument_parser):
+def run(options, parser=argument_parser, logger=logger):
 	"""
 	Call the run action after some argument verification.
 	"""
@@ -333,6 +420,16 @@ def run(options, parser=argument_parser):
 	if options.save_model is not None:
 		raise WCMIArgsError("error: the run action doesn't support --save-model.")
 
+	if options.gan_force_fixed_gen_params:
+		raise WCMIArgsError(
+			"error: the run action doesn't support --gan-force-fixed-gen-params.  run will use fixed GAN generation parameters instead of random noise only if the input CSV data specified them.",
+		)
+
+	if options.batch_size != data.default_batch_size:
+		raise WCMIArgsError("error: the run action doesn't support --batch-size.")
+	if options.learning_rate != data.default_learning_rate:
+		raise WCMIArgsError("error: the run action doesn't support --learning-rate.")
+
 	# Call the action.
 	return wnn.interface.run(
 		use_gan=options.gan,
@@ -340,11 +437,12 @@ def run(options, parser=argument_parser):
 		load_data_path=options.load_data,
 		save_data_path=options.save_data,
 		gan_n=options.gan_n,
-		output_keep_out_of_bounds=options.output_keep_out_of_bounds,
+		output_keep_out_of_bounds_samples=options.output_keep_out_of_bounds_samples,
+		logger=logger,
 	)
 
 @add_action
-def stats(options, parser=argument_parser):
+def stats(options, parser=argument_parser, logger=logger):
 	"""
 	Call the run action after some argument verification.
 	"""
@@ -362,11 +460,20 @@ def stats(options, parser=argument_parser):
 	if options.save_model is None:
 		raise WCMIArgsError("error: the stats action doesn't support --save-model.")
 
-	if options.output_keep_out_of_bounds:
-		raise WCMIArgsError("error: the stats action doesn't support --output-keep-out-of-bounds.")
+	if options.output_keep_out_of_bounds_samples:
+		raise WCMIArgsError("error: the stats action doesn't support --output-keep-out-of-bounds-samples.")
+	if options.gan_force_fixed_gen_params:
+		raise WCMIArgsError("error: the stats action doesn't support --gan-force-fixed-gen-params.")
+
+	if options.batch_size != data.default_batch_size:
+		raise WCMIArgsError("error: the train action doesn't support --batch-size.")
+	if options.learning_rate != data.default_learning_rate:
+		raise WCMIArgsError("error: the train action doesn't support --learning-rate.")
 
 	# Call the action.
-	return wnn.interface.stats()
+	return wnn.interface.stats(
+		logger=logger,
+	)
 
 def get_default_actions(parser=argument_parser):
 	"""
@@ -375,67 +482,87 @@ def get_default_actions(parser=argument_parser):
 	"""
 	return (
 		("train", {
-			"dense":      (True,                             "--dense"),
-			"load_data":  ("data/4th_dataset_noid.csv",      "--load-data=data/4th_dataset_noid.csv"),
-			"save_model": ("dist/dense.pt",                  "--save-model=dist/dense.pt"),
-			"save_data":  ("dist/4th_dataset_dense_mse.csv", "--save_data=dist/dense_mse.csv"),
+			"dense":        (True,                                 "--dense"),
+			"load_data":    ("data/4th_dataset_noid.csv",          "--load-data=data/4th_dataset_noid.csv"),
+			"save_model":   ("dist/dense.pt",                      "--save-model=dist/dense.pt"),
+			"save_data":    ("dist/4th_dataset_dense_mse.csv",     "--save_data=dist/dense_mse.csv"),
+			"log":          ("dist/log/train_dense_00_initial.log", "--log=dist/log/train_dense_00_initial.log"),
+			"log_truncate": (True,                                 "--log-truncate"),
 		}),
 		("train", {
-			"dense":      (True,                             "--dense"),
-			"load_model": ("dist/dense.pt",                  "--load-model=dist/dense.pt"),
-			"load_data":  ("data/4th_dataset_noid.csv",      "--load-data=data/4th_dataset_noid.csv"),
-			"save_model": ("dist/dense.pt",                  "--save-model=dist/dense.pt"),
-			"save_data":  ("dist/4th_dataset_gan_mse.csv",   "--save_data=dist/dense_mse.csv"),
+			"dense":        (True,                                 "--dense"),
+			"load_model":   ("dist/dense.pt",                      "--load-model=dist/dense.pt"),
+			"load_data":    ("data/4th_dataset_noid.csv",          "--load-data=data/4th_dataset_noid.csv"),
+			"save_model":   ("dist/dense.pt",                      "--save-model=dist/dense.pt"),
+			"save_data":    ("dist/4th_dataset_gan_bce.csv",       "--save_data=dist/4th_dataset_gan_bce.csv"),
+			"log":          ("dist/log/train_dense_01_repeat.log", "--log=dist/log/train_dense_01_repeat.log"),
+			"log_truncate": (True,                                 "--log-truncate"),
 		}),
 		("train", {
-			"gan":        (True,                             "--gan"),
-			"load_data":  ("data/4th_dataset_noid.csv",      "--load-data=data/4th_dataset_noid.csv"),
-			"save_model": ("dist/gan.pt",                    "--save-model=dist/gan.pt"),
-			"save_data":  ("dist/4th_dataset_dense_mse.csv", "--save_data=dist/dense_mse.csv"),
+			"gan":          (True,                                 "--gan"),
+			"load_data":    ("data/4th_dataset_noid.csv",          "--load-data=data/4th_dataset_noid.csv"),
+			"save_model":   ("dist/gan.pt",                        "--save-model=dist/gan.pt"),
+			"save_data":    ("dist/4th_dataset_dense_mse.csv",     "--save_data=dist/dense_mse.csv"),
+			"log":          ("dist/log/train_gan_00_initial.log",  "--log=dist/log/train_gan_00_initial.log"),
+			"log_truncate": (True,                                 "--log-truncate"),
 		}),
 		("train", {
-			"gan":        (True,                             "--gan"),
-			"load_model": ("dist/gan.pt",                    "--load-model=dist/gan.pt"),
-			"load_data":  ("data/4th_dataset_noid.csv",      "--load-data=data/4th_dataset_noid.csv"),
-			"save_model": ("dist/gan.pt",                    "--save-model=dist/gan.pt"),
-			"save_data":  ("dist/4th_dataset_gan_mse.csv",   "--save_data=dist/dense_mse.csv"),
+			"gan":          (True,                                 "--gan"),
+			"load_model":   ("dist/gan.pt",                        "--load-model=dist/gan.pt"),
+			"load_data":    ("data/4th_dataset_noid.csv",          "--load-data=data/4th_dataset_noid.csv"),
+			"save_model":   ("dist/gan.pt",                        "--save-model=dist/gan.pt"),
+			"save_data":    ("dist/4th_dataset_gan_bce.csv",       "--save_data=dist/4th_dataset_gan_bce.csv"),
+			"log":          ("dist/log/train_gan_01_repeat.log",   "--log=dist/log/train_gan_01_repeat.log"),
+			"log_truncate": (True,                                 "--log-truncate"),
 		}),
 
 		("run", {
-			"dense":      (True,                        "--dense"),
-			"load_model": ("dist/dense.pt",             "--load-model=dist/dense.pt"),
-			"load_data":  ("data/4th_dataset_noid.csv", "--load-data=data/4th_dataset_noid.csv"),
-			"save_data":  ("dist/4th_dataset_dense_predictions.csv", "--save_data=dist/4th_dataset_dense_predictions.csv"),
+			"dense":        (True,                                 "--dense"),
+			"load_model":   ("dist/dense.pt",                      "--load-model=dist/dense.pt"),
+			"load_data":    ("data/4th_dataset_noid.csv",          "--load-data=data/4th_dataset_noid.csv"),
+			"save_data":    ("dist/4th_dataset_dense_predictions.csv", "--save_data=dist/4th_dataset_dense_predictions.csv"),
+			"log":          ("dist/log/run_dense.log",             "--log=dist/log/run_dense.log"),
+			"log_truncate": (True,                                 "--log-truncate"),
 		}),
 		("run", {
-			"gan":        (True,                        "--gan"),
-			"load_model": ("dist/gan.pt",               "--load-model=dist/gan.pt"),
-			"load_data":  ("data/4th_dataset_noid.csv", "--load-data=data/4th_dataset_noid.csv"),
-			"save_data":  ("dist/4th_dataset_gan_predictions.csv", "--save_data=dist/4th_dataset_gan_predictions.csv"),
+			"gan":          (True,                                 "--gan"),
+			"load_model":   ("dist/gan.pt",                        "--load-model=dist/gan.pt"),
+			"load_data":    ("data/4th_dataset_noid.csv",          "--load-data=data/4th_dataset_noid.csv"),
+			"save_data":    ("dist/4th_dataset_gan_predictions.csv", "--save_data=dist/4th_dataset_gan_predictions.csv"),
+			"log":          ("dist/log/run_gan.log",               "--log=dist/log/run_gan.log"),
+			"log_truncate": (True,                                 "--log-truncate"),
 		}),
 
 		("stats", {
-			"load_data":  ("dist/4th_dataset_dense_mse.csv", "--load_data=dist/4th_dataset_dense_mse.csv"),
-			"save_data":  ("dist/stats",                "--save-data=dist/stats"),
+			"load_data":    ("dist/4th_dataset_dense_mse.csv",     "--load_data=dist/4th_dataset_dense_mse.csv"),
+			"save_data":    ("dist/stats",                         "--save-data=dist/stats"),
+			"log":          ("dist/log/stats_dense_mse.log",       "--log=dist/log/stats_dense_mse.log"),
+			"log_truncate": (True,                                 "--log-truncate"),
 		}),
 		("stats", {
-			"load_data":  ("dist/4th_dataset_gan_mse.csv", "--load_data=dist/4th_dataset_gan_mse.csv"),
-			"save_data":  ("dist/stats",                "--save-data=dist/stats"),
+			"load_data":    ("dist/4th_dataset_gan_bce.csv",       "--load_data=dist/4th_dataset_gan_bce.csv"),
+			"save_data":    ("dist/stats",                         "--save-data=dist/stats"),
+			"log":          ("dist/log/stats_gan_bce.log",         "--log=dist/log/stats_gan_bce.log"),
+			"log_truncate": (True,                                 "--log-truncate"),
 		}),
 		("stats", {
-			"load_data":  ("dist/4th_dataset_dense_predictions.csv", "--load_data=dist/4th_dataset_dense_predictions.csv"),
-			"save_data":  ("dist/stats",                "--save-data=dist/stats"),
+			"load_data":    ("dist/4th_dataset_dense_predictions.csv", "--load_data=dist/4th_dataset_dense_predictions.csv"),
+			"save_data":    ("dist/stats",                         "--save-data=dist/stats"),
+			"log":          ("dist/log/stats_dense_predictions.log", "--log=dist/log/stats_dense_predictions.log"),
+			"log_truncate": (True,                                 "--log-truncate"),
 		}),
 		("stats", {
-			"load_data":  ("dist/4th_dataset_gan_predictions.csv", "--load_data=dist/4th_dataset_gan_predictions.csv"),
-			"save_data":  ("dist/stats",                "--save-data=dist/stats"),
+			"load_data":    ("dist/4th_dataset_gan_predictions.csv", "--load_data=dist/4th_dataset_gan_predictions.csv"),
+			"save_data":    ("dist/stats",                         "--save-data=dist/stats"),
+			"log":          ("dist/log/stats_gan_predictions.log", "--log=dist/log/stats_gan_predictions.log"),
+			"log_truncate": (True,                                 "--log-truncate"),
 		}),
 	)
 
 default_actions = get_default_actions()
 
 @add_action
-def default(options, parser=argument_parser, default_actions=default_actions):
+def default(options, parser=argument_parser, default_actions=default_actions, logger=logger):
 	"""
 	Run a typical sequence of train, run, and stats commands.
 	"""
@@ -492,30 +619,33 @@ def default(options, parser=argument_parser, default_actions=default_actions):
 			"""
 			return "{0:s} {1:s}".format(action, " ".join(shlex.quote(flag) for option_key, (option_value, flag) in action_options.items()))
 
-	def run_action(action, action_options):
+	def run_action(action, action_options, logger=logger):
 		"""Run an individual action with options."""
-		return actions[action](argparse.Namespace(**{
-			**options_dict,
-			**{option_key: option_value for option_key, (option_value, flag) in action_options.items()},
-		}))
-	def run_actions(actions=default_actions, run_action=run_action):
+		return actions[action](
+			argparse.Namespace(**{
+				**options_dict,
+				**{option_key: option_value for option_key, (option_value, flag) in action_options.items()},
+			}),
+			logger=logger,
+		)
+	def run_actions(actions=default_actions, run_action=run_action, logger=logger):
 		"""Print the action to run and run it for each action."""
 		last_result = None
 		for action, action_options in actions:
-			print(format_action(action, action_options))
-			last_result = run_action(action, action_options)
+			logger.info(format_action(action, action_options))
+			last_result = run_action(action, action_options, logger=logger)
 		return last_result
 
 	# Now run each action.
-	print("Will run the following actions:")
+	logger.info("Will run the following actions:")
 	for action, action_options in default_actions:
-		print("  {0:s}".format(format_action(action, action_options)))
-	print("")
+		logger.info("  {0:s}".format(format_action(action, action_options)))
+	logger.info("")
 
-	run_actions(default_actions)
+	run_actions(default_actions, logger=logger)
 
-	print("")
-	print("Done running default actions.")
+	logger.info("")
+	logger.info("Done running default actions.")
 
 if __name__ == "__main__":
 	import sys

@@ -64,7 +64,7 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 test_proportion = 0.25
 
 # What learning rate should the optimizer use?
-learning_rate = 0.02
+default_learning_rate = 0.02
 
 # SGD parameters.
 
@@ -82,3 +82,8 @@ testing_split_seed = 42
 
 # Enable methods that try to automatically size certain groups of text output.
 auto_size_formatting = True
+
+# GAN parameter: keep the generator and the discriminator loss in balance.  If
+# the loss of the other is more than threshold times this value, pause training
+# this one.
+gan_training_pause_threshold = 8

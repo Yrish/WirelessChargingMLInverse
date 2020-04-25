@@ -16,6 +16,7 @@ import torch
 import torch.nn as nn
 
 from wcmi.exception import WCMIError
+from wcmi.log import logger
 
 import wcmi.nn as wnn
 import wcmi.nn.data as data
@@ -30,6 +31,9 @@ def train(
 	status_every_epoch=data.default_status_every_epoch,
 	status_every_sample=data.default_status_every_sample,
 	batch_size=data.default_batch_size,
+	learning_rate=data.default_learning_rate,
+	gan_force_fixed_gen_params=False,
+	logger=logger,
 ):
 	# TODO: also output linear regression for each column for all_data
 	# (predicted_out1 = b0 + b1*input1 + b2*input2 + ...)
@@ -72,21 +76,23 @@ def train(
 
 	if batch_size <= 0:
 		batch_size = num_samples
+	if batch_size > num_samples:
+		batch_size = num_samples
 
-	num_batches = num_samples // batch_size
+	num_batches = (num_samples + batch_size - 1) // batch_size
 	final_batch_size = num_samples % batch_size
 	if final_batch_size == 0:
 		final_batch_size = batch_size
 
-	num_training_batches = num_training_samples // batch_size
+	num_training_batches = (num_training_samples + batch_size - 1) // batch_size
 	final_training_batch_size = num_training_samples % batch_size
 	if final_training_batch_size == 0:
-		final_training_batch_size = training_batch_size
+		final_training_batch_size = batch_size
 
-	num_testing_batches = num_testing_samples // batch_size
+	num_testing_batches = (num_testing_samples + batch_size - 1) // batch_size
 	final_testing_batch_size = num_testing_samples % batch_size
 	if final_testing_batch_size == 0:
-		final_testing_batch_size = testing_batch_size
+		final_testing_batch_size = batch_size
 
 	# Get the input and labels (target).
 	num_sim_in_columns     = simulation_data.simulation_info.num_sim_inputs
@@ -161,7 +167,7 @@ def train(
 	training_input  = training_data.view(training_data.shape)[:, num_sim_in_columns:num_sim_in_out_columns]
 
 	# Let the user know on which device training is occurring.
-	print("device: {0:s}".format(str(data.device)))
+	logger.info("device: {0:s}".format(str(data.device)))
 
 	# Train the model.
 	if not use_gan:
@@ -183,7 +189,7 @@ def train(
 		# them.
 		optimizer = torch.optim.SGD(
 			model.parameters(),
-			lr=data.learning_rate,
+			lr=learning_rate,
 			momentum=data.momentum,
 			weight_decay=data.weight_decay,
 			dampening=data.dampening,
@@ -200,9 +206,9 @@ def train(
 
 			if status_enabled:
 				#if epoch > 1:
-				#	print("")
-				print("")
-				print("Beginning epoch #{0:,d}/{1:,d}.".format(epoch + 1, num_epochs))
+				#	logger.info("")
+				logger.info("")
+				logger.info("Beginning epoch #{0:,d}/{1:,d}.".format(epoch + 1, num_epochs))
 
 			# Shuffle the rows of data.
 			training_data = training_data[torch.randperm(training_data.size()[0])].to(data.device)
@@ -230,7 +236,7 @@ def train(
 
 				# Print a status for the next sample?
 				if substatus_enabled:
-					print("  Beginning sample #{0:,d}/{1:,d} (epoch #{2:,d}/{3:,d}).".format(
+					logger.info("  Beginning sample #{0:,d}/{1:,d} (epoch #{2:,d}/{3:,d}).".format(
 						batch * batch_size + 1,
 						num_samples,
 						epoch + 1,
@@ -249,7 +255,7 @@ def train(
 				loss = loss_function(batch_output, batch_labels)
 
 				if substatus_enabled:
-					print("    MSE loss, mean of columns: {0:,f}".format(loss.item()))
+					logger.info("    MSE loss, mean of columns: {0:,f}".format(loss.item()))
 
 				# Record the errors for this batch.
 				current_epoch_training_errors[batch_slice] = batch_output.detach() - batch_labels.detach()
@@ -289,7 +295,7 @@ def train(
 
 					# Print a status for the next sample?
 					if substatus_enabled:
-						print("  Beginning sample #{0:,d}/{1:,d} (testing phase) (epoch #{2:,d}/{3:,d}).".format(
+						logger.info("  Beginning sample #{0:,d}/{1:,d} (testing phase) (epoch #{2:,d}/{3:,d}).".format(
 							total_batch * batch_size + 1,
 							num_samples,
 							epoch + 1,
@@ -308,7 +314,7 @@ def train(
 					loss = loss_function(batch_output, batch_labels)
 
 					if substatus_enabled:
-						print("    MSE loss, mean of columns: {0:,f}".format(loss.item()))
+						logger.info("    MSE loss, mean of columns: {0:,f}".format(loss.item()))
 
 					# Record the errors for this batch.
 					current_epoch_testing_errors[batch_slice] = batch_output.detach() - batch_labels.detach()
@@ -324,7 +330,7 @@ def train(
 			# user know we've finished this epoch.
 			#if status_enabled and status_every_epoch > 1:
 			if status_enabled:
-				print(
+				logger.info(
 					"Done training epoch #{0:,d}/{1:,d} (testing MSE norm (mean) vs. training MSE norm (mean): {2:,f} ({3:,f}) vs. {4:,f} ({5:,f}) (lower is more accurate)).".format(
 						epoch + 1, num_epochs,
 						current_epoch_testing_mse_norm,
@@ -342,8 +348,8 @@ def train(
 
 		all_nplabels = all_labels.numpy()
 
-		print("")
-		print("Done training last epoch.  Preparing statistics...")
+		logger.info("")
+		logger.info("Done training last epoch.  Preparing statistics...")
 
 		def stat_format(fmt, tvec=None, lvec=None, float_str_min_len=13):
 			"""
@@ -363,61 +369,38 @@ def train(
 			else:
 				return fmt
 
-		bold = "\033[1m"
-		white = "\033[37m"
-		clear = "\033[0;0m"
-		#b = bold + white
-		b = white
-		e = clear
 		stat_fmts = (
-			("", None, None),
-			("Last testing MSE   (norm) (mean) : {{0:s}} ({{1:{0:s},f}}) ({{2:{0:s},f}})", last_testing_mse, None),
-			(b+"Last testing RMSE  (norm) (mean) : {{0:s}} ({{1:{0:s},f}}) ({{2:{0:s},f}})"+e, last_testing_mse.sqrt(), None),
-			("Last training MSE  (norm) (mean) : {{0:s}} ({{1:{0:s},f}}) ({{2:{0:s},f}})", last_training_mse, None),
-			("Last training RMSE (norm) (mean) : {{0:s}} ({{1:{0:s},f}}) ({{2:{0:s},f}})", last_training_mse.sqrt(), None),
-			("", None, None),
-			("Label column names               : {{0:s}}", None, simulation_data.simulation_info.sim_input_names),
-			("", None, None),
-			("All labels mean    (norm) (mean) : {{0:s}} ({{1:{0:s},f}}) ({{2:{0:s},f}})", all_labels.mean(0), None),
-			("All labels var     (norm) (mean) : {{0:s}} ({{1:{0:s},f}}) ({{2:{0:s},f}})", all_labels.var(0), None),
-			(b+"All labels stddev  (norm) (mean) : {{0:s}} ({{1:{0:s},f}}) ({{2:{0:s},f}})"+e, all_labels.std(0), None),
-			("", None, None),
-			("All labels min     (norm) (mean) : {{0:s}} ({{1:{0:s},f}}) ({{2:{0:s},f}})", torch.Tensor(np.quantile(all_nplabels, 0, 0)), None),
-			("...1st quartile    (norm) (mean) : {{0:s}} ({{1:{0:s},f}}) ({{2:{0:s},f}})", torch.Tensor(np.quantile(all_nplabels, 0.25, 0)), None),
-			("All labels median  (norm) (mean) : {{0:s}} ({{1:{0:s},f}}) ({{2:{0:s},f}})", torch.Tensor(np.quantile(all_nplabels, 0.5, 0)), None),
-			("...3rd quartile    (norm) (mean) : {{0:s}} ({{1:{0:s},f}}) ({{2:{0:s},f}})", torch.Tensor(np.quantile(all_nplabels, 0.75, 0)), None),
-			("All labels max     (norm) (mean) : {{0:s}} ({{1:{0:s},f}}) ({{2:{0:s},f}})", torch.Tensor(np.quantile(all_nplabels, 1, 0)), None),
+			(False, "", None, None),
+			(False, "Last testing MSE   (norm) (mean) : {{0:s}} ({{1:{0:s},f}}) ({{2:{0:s},f}})", last_testing_mse, None),
+			(True,  "Last testing RMSE  (norm) (mean) : {{0:s}} ({{1:{0:s},f}}) ({{2:{0:s},f}})", last_testing_mse.sqrt(), None),
+			(False, "Last training MSE  (norm) (mean) : {{0:s}} ({{1:{0:s},f}}) ({{2:{0:s},f}})", last_training_mse, None),
+			(False, "Last training RMSE (norm) (mean) : {{0:s}} ({{1:{0:s},f}}) ({{2:{0:s},f}})", last_training_mse.sqrt(), None),
+			(False, "", None, None),
+			(False, "Label column names               : {{0:s}}", None, simulation_data.simulation_info.sim_input_names),
+			(False, "", None, None),
+			(False, "All labels mean    (norm) (mean) : {{0:s}} ({{1:{0:s},f}}) ({{2:{0:s},f}})", all_labels.mean(0), None),
+			(False, "All labels var     (norm) (mean) : {{0:s}} ({{1:{0:s},f}}) ({{2:{0:s},f}})", all_labels.var(0), None),
+			(True,  "All labels stddev  (norm) (mean) : {{0:s}} ({{1:{0:s},f}}) ({{2:{0:s},f}})", all_labels.std(0), None),
+			(False, "", None, None),
+			(False, "All labels min     (norm) (mean) : {{0:s}} ({{1:{0:s},f}}) ({{2:{0:s},f}})", torch.Tensor(np.quantile(all_nplabels, 0, 0)), None),
+			(False, "...1st quartile    (norm) (mean) : {{0:s}} ({{1:{0:s},f}}) ({{2:{0:s},f}})", torch.Tensor(np.quantile(all_nplabels, 0.25, 0)), None),
+			(False, "All labels median  (norm) (mean) : {{0:s}} ({{1:{0:s},f}}) ({{2:{0:s},f}})", torch.Tensor(np.quantile(all_nplabels, 0.5, 0)), None),
+			(False, "...3rd quartile    (norm) (mean) : {{0:s}} ({{1:{0:s},f}}) ({{2:{0:s},f}})", torch.Tensor(np.quantile(all_nplabels, 0.75, 0)), None),
+			(False, "All labels max     (norm) (mean) : {{0:s}} ({{1:{0:s},f}}) ({{2:{0:s},f}})", torch.Tensor(np.quantile(all_nplabels, 1, 0)), None),
 		)
 
 		def stat_fmt_lines(float_str_min_len):
 			"""Given a float_str_min_len value, return formatted stats lines."""
 			return (*(
-				stat_format(*vals, float_str_min_len=float_str_min_len) for vals in stat_fmts
+				(white, stat_format(*vals, float_str_min_len=float_str_min_len)) for white, *vals in stat_fmts
 			),)
-		def print_stat_fmt_lines(float_str_min_len):
+		def print_stat_fmt_lines(float_str_min_len, logger=logger):
 			"""Given a float_str_min_len value, print formatted stats lines."""
-			for line in stat_fmt_lines(float_str_min_len):
-				print(line)
-
-		def fmt_printable_strlen(s):
-			"""
-			Count the number of printable characters after removing prefixes or
-			suffix of b or e (multiple prefixes/suffixes currently not supported).
-			c.f. https://stackoverflow.com/a/92488
-			"""
-			count = 0
-			for formatting in [
-				bold, white, clear, b, e,
-			]:
-				if len(formatting) > 0:
-					if s.startswith(formatting):
-						s = formatting[len(formatting):]
-					if s.endswith(formatting):
-						s = formatting[:-len(formatting)]
-			for c in s:
-				if c in string.printable:
-					count += 1
-			return count
+			for white, line in stat_fmt_lines(float_str_min_len):
+				if not white:
+					logger.info(line)
+				else:
+					logger.info(line, color="white")
 
 		# Start at 13 and decrease until the maximimum line length is <=
 		# COLUMNS, then keep decreasing until the number of maximum lengthed
@@ -437,8 +420,8 @@ def train(
 			# Try decreasing to 0, inclusive.
 			for try_float_str_min_len in range(float_str_min_len, -1, -1):
 				lines = stat_fmt_lines(try_float_str_min_len)
-				max_line_len = max([fmt_printable_strlen(line) for line in lines])
-				max_line_len_count = len([line for line in lines if fmt_printable_strlen(line) >= max_line_len])
+				max_line_len = max([len(line) for white, line in lines])
+				max_line_len_count = len([line for white, line in lines if len(line) >= max_line_len])
 				if cols is None or max_line_len_count <= cols:
 					if last_max_line_len_count is not None and max_line_len_count < last_max_line_len_count:
 						break
@@ -446,11 +429,11 @@ def train(
 				float_str_min_len = try_float_str_min_len
 
 		# Now print the stats.
-		print_stat_fmt_lines(float_str_min_len)
+		print_stat_fmt_lines(float_str_min_len, logger=logger)
 
 		# Did the user specify to save MSE errors?
 		if save_data_path is not None:
-			mse_columns = ["is_training"] + ["mse_{0:s}".format(column) for column in simulation_data.simulation_info.sim_input_names]
+			mse_columns = ["is_training", *["mse_{0:s}".format(column) for column in simulation_data.simulation_info.sim_input_names]]
 			# Prepend the "is_training" column as the first.
 			epoch_training_np_mse = epoch_training_mse.numpy()
 			epoch_testing_np_mse = epoch_testing_mse.numpy()
@@ -483,17 +466,78 @@ def train(
 			mse_output["is_training"] = mse_output["is_training"].astype(int)
 			mse_output.to_csv(save_data_path, index=False)
 
-			print("")
-			print("Wrote MSE errors (testing MSE for each epoch and then training MSE for each epoch) `{0:s}'.".format(save_data_path))
+			logger.info("")
+			logger.info("Wrote MSE errors (testing MSE for each epoch and then training MSE for each epoch) `{0:s}'.".format(save_data_path))
 
 		# We're done.  Catch you later.
-		print("")
-		print("Done training all epochs.")
-		print("Have a good day.")
+		logger.info("")
+		logger.info("Done training all epochs.")
+		logger.info("Have a good day.")
 
 	else:
+		# Keep the generator and the discriminator loss in balance.  If the
+		# loss of the other is more than threshold times this value, pause
+		# training this one.
+		#data.gan_training_pause_threshold
+
+		# Within an epoch, per-sample losses.
+		# Cleared each epoch.
+		current_epoch_num_generator_training_samples = 0
+		current_epoch_num_discriminator_training_samples = 0
+		current_epoch_generator_training_losses = torch.zeros((num_training_samples,), device=data.device, requires_grad=False)
+		current_epoch_discriminator_training_losses = torch.zeros((num_training_samples,), device=data.device, requires_grad=False)
+		# generator_loss, column_loss
+		current_epoch_testing_losses = torch.zeros((num_testing_samples,2,), device=data.device, requires_grad=False)
+
+		# Per-epoch losses.
+		#
+		# After each epoch, set the corresponding element in this array to the
+		# calculated BCE loss for each column, obtained by finding the mean BCE
+		# loss for each sample within a given column.
+		epoch_losses_columns = [
+			# During the testing phase in this epoch, what was the mean BCE
+			# loss for the generator?  How good was it at fooling the
+			# discriminator, when using test input?
+			"testing_mean_generator_bce_loss",
+
+			# During the testing phase in this epoch, what was the mean BCE
+			# loss for the generator?  How good was it at fooling the
+			# discriminator?
+			"testing_mean_discriminator_bce_loss",
+
+			# For how many samples was the generator trained while not paused
+			# during the training of this epoch?
+			#
+			# If this value is 0, then there was no training performed on the
+			# generator for this epoch, and the training mean loss columns do not
+			# represent mean losses, but the testing mean loss columns are
+			# still valid.
+			"num_generator_training_samples",
+
+			# For how many samples was the discriminator trained while not
+			# paused during the training of this epoch?
+			"num_discriminator_training_samples",
+
+			# For how many samples was the generator training paused during
+			# the training of this epoch?
+			"num_generator_training_paused",
+
+			# For how many samples was the discriminator training paused during
+			# the testing this epoch?
+			"num_discriminator_training_paused",
+
+			# What was the mean generator loss in the adversarial network for
+			# this epoch during training?
+			"training_mean_generator_bce_loss",
+
+			# What was the mean discriminator loss for this epoch during
+			# training?
+			"training_mean_discriminator_bce_loss",
+		]
+		epoch_losses = torch.zeros((num_epochs, len(epoch_losses_columns),), device=data.device, requires_grad=False)
+
 		# TODO
-		print("(To be implemented...)")
+		logger.error("(To be implemented...)")
 		raise NotImplementedError("error: train: the train action is not yet implemented for --gan.")
 		pass
 		return
@@ -501,7 +545,11 @@ def train(
 	# Save the trained model.
 	model.save()
 
-def run(use_gan=True, load_model_path=None, load_data_path=None, save_data_path=None, gan_n=gan.default_gan_n, output_keep_out_of_bounds=False):
+def run(
+	use_gan=True, load_model_path=None, load_data_path=None,
+	save_data_path=None, gan_n=gan.default_gan_n,
+	output_keep_out_of_bounds_samples=False, logger=logger,
+):
 	"""
 	Load the CSV data, pass it through the neural network, and write a new CSV
 	file that includes what the neural network predicted.
@@ -593,7 +641,7 @@ def run(use_gan=True, load_model_path=None, load_data_path=None, save_data_path=
 	# Check boundaries.
 	input_npmins = np.array(simulation_data.simulation_info.sim_input_mins)
 	input_npmaxs = np.array(simulation_data.simulation_info.sim_input_maxs)
-	if not output_keep_out_of_bounds:
+	if not output_keep_out_of_bounds_samples:
 		# Get a mask of np.array([True, True, True, False, True, ...]) as to which rows are
 		# valid.
 		input_npmins_repeated = np.repeat(np.array([input_npmins]), npoutput.shape[0], axis=0)
@@ -611,11 +659,11 @@ def run(use_gan=True, load_model_path=None, load_data_path=None, save_data_path=
 		num_lost_samples = old_num_samples - new_num_samples
 
 		if num_lost_samples <= 0:
-			print("All model predictions are within the minimum and maximum boundaries.")
-			print("")
+			logger.info("All model predictions are within the minimum and maximum boundaries.")
+			logger.info("")
 		else:
-			print("WARNING: #{0:,d}/#{0:,d} sample rows have been discarded from the CSV output due to out-of-bounds predictions.".format(num_lost_samples, old_num_samples))
-			print("")
+			logger.warning("WARNING: #{0:,d}/#{0:,d} sample rows have been discarded from the CSV output due to out-of-bounds predictions.".format(num_lost_samples, old_num_samples))
+			logger.warning("")
 
 	# Make sure the output isn't all the same.
 	if len(npoutput) >= 2:
@@ -624,46 +672,91 @@ def run(use_gan=True, load_model_path=None, load_data_path=None, save_data_path=
 		# Warn if the std is <= this * (max_bound - min_bound).
 		std_warn_threshold = 0.1
 		num_warnings = 0
+		# (Per-column.)
 		unique_warn_threshold = 25
+
+		min_val, max_val = np.min(npoutput), np.max(npoutput)
+		max_val_str_len = max(len(str(min_val)), len(str(max_val)))
+
+		all_unique = np.unique(npoutput)
+
+		min_unique_val, max_unique_val = np.min(all_unique), np.max(all_unique)
+		max_unique_val_str_len = max(len(str(min_unique_val)), len(str(max_unique_val)))
+
 		for idx, name in enumerate(simulation_data.data.columns.values[:simulation_data.simulation_info.num_sim_inputs]):
 			if num_warnings >= 1:
-				print("")
+				logger.warning("")
 
 			std = npoutput_stds[idx]
 			this_threshold = std_warn_threshold * (input_npmaxs[idx] - input_npmins[idx])
 			if std <= 0.0:
-				print("WARNING: all predictions for simulation input parameter #{0:d} (`{1:s}`) are the same!  Prediction: {2:,f}.".format(idx + 1, name, npoutput[0][idx]))
+				logger.warning("WARNING: all predictions for simulation input parameter #{0:d} (`{1:s}`) are the same!  Prediction: {2:,f}.".format(idx + 1, name, npoutput[0][idx]))
 				num_warnings += 1
 			elif std <= this_threshold:
-				print("WARNING: there is little variance in the predictions for simulation input parameter #{0:d} (`{1:s}`): std <= this_threshold: {2:,f} <= {3:,f}.".format(idx + 1, name, std, this_threshold))
+				logger.warning("WARNING: there is little variance in the predictions for simulation input parameter #{0:d} (`{1:s}`): std <= this_threshold: {2:,f} <= {3:,f}.".format(idx + 1, name, std, this_threshold))
 				num_warnings += 1
 
-			# This may be inefficient, but count unique values and warn if
-			# there are few.
+			# Count unique values and warn if there are few.
 			col = npoutput[:,idx]
-			unique = set(npoutput[:,idx].tolist())
+			#unique = set(npoutput[:,idx].tolist())
+			unique = np.unique(npoutput[:,idx])
+
+			min_unique_val, max_unique_val = np.min(unique), np.max(unique)
+			max_unique_val_str_len = max(len(str(min_unique_val)), len(str(max_unique_val)))
+
 			if len(unique) <= unique_warn_threshold:
-				print("WARNING: there are few unique values (#{0:,d}) for predictions for simulation input parameter #{1:d} (`{2:s}`):".format(
+				logger.warning("WARNING: there are few unique values (#{0:,d}) for predictions for simulation input parameter #{1:d} (`{2:s}`):".format(
 					len(unique), idx + 1, name
 				))
 				num_warnings += 1
+
+				max_unique = max(unique)
+				len_str_max_unique = len(str(max_unique))
+
+				min_val_str_len = max_unique_val_str_len if True else len_str_max_unique
+
+				float_groups = []
+				visited = set()
 				for val in sorted(list(unique)):
-					count = len([x for x in col if math.isclose(x, val)])
-					if count > 1:
-						print("  {0:s} (x{1:,d})".format(str(val), count))
-					else:
-						print("  {0:s}".format(str(val)))
+					if val not in visited:
+						visited.add(val)
+						lines = []
+
+						count_eq    = len([x for x in col if x == val])
+						close_values = [x for x in col if math.isclose(x, val)]
+						count_close = len(close_values)
+
+						float_groups.append((count_close, val, lines))
+
+						if count_close > 1:
+							if count_eq > count_close:
+								lines.append("  {{0:<{0:d}s}} x{{1:,d}} close values:".format(max_val_str_len).format(str(val), count_close))
+								for close_val in close_values:
+									visited.add(close_val)
+
+									count_eq = len([x for x in col if x == close_val])
+									if count_eq > 1:
+										lines.append("  {{0:<{0:d}s}} x{{1:,d}}".format(max_val_str_len).format(str(close_val), count_eq))
+									else:
+										lines.append("  {{0:<{0:d}s}}".format(max_val_str_len).format(str(close_val)))
+							else:
+								lines.append("  {{0:<{0:d}s}} x{{1:,d}}".format(max_val_str_len).format(str(val), count_eq))
+						else:
+							lines.append("  {{0:<{0:d}s}}".format(max_val_str_len).format(str(val)))
+				for count_close, val, lines in sorted(float_groups, reverse=True):
+					for line in lines:
+						logger.warning(line)
 		if num_warnings >= 1:
-			print("")
+			logger.warning("")
 
 	# Write the output.
 	simulation_data.save(output)
-	print("Wrote CSV output with predictions to `{0:s}'.".format(save_data_path))
+	logger.info("Wrote CSV output with predictions to `{0:s}'.".format(save_data_path))
 
-def stats():
+def stats(logger=logger):
 	"""
 	(To be documented...)
 	"""
-	print("(To be implemented...)")
+	logger.error("(To be implemented...)")
 	raise NotImplementedError("error: stats: the stats action is not yet implemented.")
 	pass

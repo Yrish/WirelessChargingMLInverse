@@ -30,6 +30,10 @@ def train(
 	status_every_sample=data.default_status_every_sample,
 	batch_size=data.default_batch_size,
 ):
+	# TODO: also output linear regression for each column for all_data
+	# (predicted_out1 = b0 + b1*input1 + b2*input2 + ...)
+	# (predicted_out2 = c0 + c1*input1 + c2*input2 + ...)
+	# (...)
 	"""
 	Train a neural network with data and save it.
 	"""

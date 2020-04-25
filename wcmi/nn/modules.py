@@ -204,7 +204,7 @@ class WCMIModule(nn.Module):
 				if True:
 					torch.rand(p.data.shape, out=p.data)
 
-	def with_standardized(self, *input, forward=None, in_place=False):
+	def with_standardized(self, *input, forward=None, standardize_input_only=False, standardize_input_mask=None, in_place=False, **kwargs):
 		"""
 		If standardization or normalization is enabled, apply it; else, leave
 		the input untouched.
@@ -218,10 +218,32 @@ class WCMIModule(nn.Module):
 		else:
 			input_standardized = (*(x.clone() for x in input),)
 
+		# Whether to standardize this input (assume we're standardizing any
+		# inputs).
+		if standardize_input_mask is None:
+			def f(i, x, xs):
+				"""
+				Whether to standardize this input (assume we're standardizing any
+				inputs).
+				"""
+				return xs()
+		else:
+			def f(i, x, xs):
+				"""
+				Whether to standardize this input (assume we're standardizing any
+				inputs).
+				"""
+				if standardize_input_mask[i]:
+					return xs()
+				else:
+					return x
+
 		# Determine whether to standardize, normalize, or neither.
 		if self.standardize:
-			xs = [(x - self.population_mean_in)/self.population_std_in for x in input]
-			xs = forward(*xs)
+			xs = [f(i, x, lambda: (x - self.population_mean_in)/self.population_std_in) for i, x in enumerate(input)]
+			xs = forward(*xs, **kwargs)
+			if standardize_input_only:
+				return xs
 			x = self.population_std_out * xs + self.population_mean_out
 			return x
 		elif self.normalize_population:
@@ -232,13 +254,17 @@ class WCMIModule(nn.Module):
 			data_max_out   = self.population_max_out
 			data_range_out = data_max_out - data_min_out
 			if not self.normalize_negative:
-				xs = [(x - data_min_in)/data_range_in for x in input]
-				xs = forward(*xs)
+				xs = [f(i, x, lambda: (x - data_min_in)/data_range_in) for i, x in enumerate(input)]
+				xs = forward(*xs, **kwargs)
+				if standardize_input_only:
+					return xs
 				x = data_range_out * xs + data_min_out
 				return x
 			else:
-				xs = [2*(x - data_min_in)/data_range_in - 1 for x in input]
-				xs = forward(*xs)
+				xs = [f(i, x, lambda: 2*(x - data_min_in)/data_range_in - 1) for i, x in enumerate(input)]
+				xs = forward(*xs, **kwargs)
+				if standardize_input_only:
+					return xs
 				x = data_range_out * ((xs+1)/2) + data_min_out
 				return x
 		elif self.normalize_bounds:
@@ -249,27 +275,32 @@ class WCMIModule(nn.Module):
 			data_max_out   = self.bounds_max_out
 			data_range_out = data_max_out - data_min_out
 			if not self.normalize_negative:
-				xs = [(x - data_min_in)/data_range_in for x in input]
-				xs = forward(*xs)
+				xs = [f(i, x, lambda: (x - data_min_in)/data_range_in) for i, x in enumerate(input)]
+				xs = forward(*xs, **kwargs)
+				if standardize_input_only:
+					return xs
 				x = data_range_out * xs + data_min_out
 				return x
 			else:
-				xs = [2*(x - data_min_in)/data_range_in - 1 for x in input]
-				xs = forward(*xs)
+				xs = [f(i, x, lambda: 2*(x - data_min_in)/data_range_in - 1) for i, x in enumerate(input)]
+				xs = forward(*xs, **kwargs)
+				if standardize_input_only:
+					return xs
 				x = data_range_out * ((xs+1)/2) + data_min_out
 				return x
 		else:
 			x = self.net(*input)
 			return x
 
-	def forward(self, *input):
+	def forward(self, *input, **kwargs):
 		"""
-		By default, run the input through `self.net`.
+		By default, run the input through `self.net` after handling
+		standardization settings.
 		"""
-		x = self.with_standardized(*input, forward=self.forward_with_standardized, in_place=False)
+		x = self.with_standardized(*input, **kwargs)
 		return x
 
-	def forward_with_standardized(self, *input):
+	def forward_with_standardized(self, *input, **kwargs):
 		"""
 		By default, run the input through `self.net`.
 		"""

@@ -7,7 +7,7 @@ dataset = Data(switchInputAndOutput = True)
 train_dataset, test_dataset = torch.utils.data.random_split(dataset, [5500, 827])
 
 batch_size = 8
-learning_rate = 0.000001
+learning_rate = 0.000004
 num_epochs = 80000
 rho=0.6
 eps=5e-05
@@ -86,7 +86,7 @@ if __name__ == '__main__':
             labels = labels.to(device)
 
             outputs = model(input)
-            outputs = outputs + torch.mul(labels - outputs, bias)
+            outputs = outputs - torch.mul(labels - outputs, bias)
             loss = criterion(outputs, labels)
 
             cost += loss.item()

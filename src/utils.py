@@ -27,6 +27,24 @@ class Data(Dataset):
             return input, output
         return output, input
 
+    def getRegularItem(self, idx):
+        startingIndex = self.startingIndex
+        inputEndIndex = self.startingIndex + self.inputCount
+        input = self.data.iloc[idx, startingIndex:inputEndIndex]
+        output = self.data.iloc[idx, inputEndIndex:]
+        if self.switchInputAndOutput:
+            return input, output
+        return output, input
+
+    def getAllItems(self):
+        X = []
+        Y = []
+        for i in range(len(self)):
+            x, y = self.getRegularItem(i)
+            X.append(x)
+            Y.append(y)
+        return X, Y
+
 
 
 if __name__ == '__main__':

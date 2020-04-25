@@ -31,61 +31,78 @@ generators = [
 def isPositive(num):
     return num > 0
 
+def notFunction(function):
+    return lambda x: not function(x)
+
 impossible = [
-    isPositive,
-    isPositive,
-    isPositive,
-    isPositive,
-    isPositive,
-    isPositive,
-    isPositive,
-    isPositive,
-    isPositive,
-    isPositive,
-    isPositive,
-    isPositive,
+    notFunction(isPositive),
+    notFunction(isPositive),
+    notFunction(isPositive),
+    notFunction(isPositive),
+    notFunction(isPositive),
+    notFunction(isPositive),
+    notFunction(isPositive),
+    notFunction(isPositive),
+    notFunction(isPositive),
+    notFunction(isPositive),
+    notFunction(isPositive),
+    notFunction(isPositive),
 ]
 
 def betweenInclusive(minimum, maximum):
     return lambda x: x >= minimum and x <= maximum
 
 restricted = [
-    betweenInclusive(1, 100),
-    betweenInclusive(1, 100),
-    betweenInclusive(1, 1000),
-    betweenInclusive(3, 150),
-    betweenInclusive(3, 150),
-    betweenInclusive(3, 150),
-    betweenInclusive(3, 1500),
-    betweenInclusive(1, 300),
-    betweenInclusive(1, 10000),
-    betweenInclusive(0.1, 40),
-    betweenInclusive(1, 3000),
-    betweenInclusive(1, 300),
+    notFunction(betweenInclusive(1, 100)),
+    notFunction(betweenInclusive(1, 100)),
+    notFunction(betweenInclusive(1, 1000)),
+    notFunction(betweenInclusive(3, 150)),
+    notFunction(betweenInclusive(3, 150)),
+    notFunction(betweenInclusive(3, 150)),
+    notFunction(betweenInclusive(3, 1500)),
+    notFunction(betweenInclusive(1, 300)),
+    notFunction(betweenInclusive(1, 10000)),
+    notFunction(betweenInclusive(0.1, 40)),
+    notFunction(betweenInclusive(1, 3000)),
+    notFunction(betweenInclusive(1, 300)),
 ]
 
 print(len(headers))
 print(len(restricted))
 print(len(impossible))
 
-def getTestData(model, count):
+def getTestData(model, count, isNeuralNetwork=True):
     restrictedCount = 0
     impossibleCount = 0
+    iterations = 0
     testInput = []
     output = []
     while len(output) < count:
+        iterations += 1
         inp = [generators[x]() for x in range(7, 12)]
-        out = model(from_numpy(np.array(inp, dtype='f')))
-        out = [item.item() for item in list(out.detach())]
+        out = None
+        if isNeuralNetwork:
+            out = model(from_numpy(np.array(inp, dtype='f')))
+            out = [item.item() for item in list(out.detach())]
+        else:
+            out = model.predict(np.array([inp], dtype='f'))[0]
+        breaking = False
         for i in range(len(out)):
             if impossible[i](out[i]):
                 impossibleCount += 1
-                continue
+                breaking = True
+                break
             if restricted[i](out[i]):
                 restrictedCount += 1
-                continue
+                breaking = True
+                break
+        if iterations % 10000 == 0:
+            print("done {} iterations, {} usable, {} impossible, {} restricted".format(iterations, len(output), impossibleCount, restrictedCount))
+        if breaking:
+            continue
         testInput.append(inp)
         output.append(out)
+        print("generating {} {} {}".format(len(testInput), impossibleCount, restrictedCount))
     print("Generated {} usable outputs, {} were restricted, {} were impossible".format(len(output), restrictedCount, impossibleCount))
     with open("simulationOut.csv", "w") as simulationOut:
         simulationOut.write(",".join(headers[7:12]) + "\n")
@@ -102,7 +119,8 @@ def getTestData(model, count):
             allData.write(",".join([str(s) for s in testInput[i]]) + "\n")
 
 if __name__ == '__main__':
-    modelName = "../saves/biasCost/error_1449646.model"
+    # modelName = "./saves/cost_e_3762065.8720703125_c_2766072.1286621094_ep_99.model"
+    modelName = "./saves/cost_e_1533793.0595703125_c_1209800.4447021484_ep_6199.model"
     model = NeuralNet()
     model.load_state_dict(load(modelName))
     getTestData(model, 100)

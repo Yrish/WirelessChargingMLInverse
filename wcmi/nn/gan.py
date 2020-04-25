@@ -12,11 +12,11 @@ from enum import Enum
 import torch.nn as nn
 
 from wcmi.nn import modules
-import wcmi.nn.data
+import wcmi.nn.data as data
 
 # The default --gan-n value: the default number of additional input neurons to
 # the generator beyond the 5 desired simulation output values.
-default_gan_n = wcmi.nn.data.default_gan_n
+default_gan_n = data.default_gan_n
 
 class GAN(modules.WCMIModule):
 	"""
@@ -62,6 +62,11 @@ class GAN(modules.WCMIModule):
 		(weights and biases) from a file.
 		"""
 
+		# (Pre-initialize checkpoint_extra with values that initialize_layers()
+		# Needs.  initialize_layers() will be called from the parent
+		# initializer.)
+		self.gan_n = gan_n
+
 		# Parent initialization.
 		super().__init__(*args, **kwargs)
 
@@ -82,6 +87,8 @@ class GAN(modules.WCMIModule):
 	# Property: gan_n
 	@property
 	def gan_n(self):
+		if not hasattr(self, "checkpoint_extra"):
+			self.checkpoint_extra = {}
 		if self.checkpoint_extra['gan_n'] is None:
 			self.checkpoint_extra['gan_n'] = default_gan_n
 		return self.checkpoint_extra['gan_n']
@@ -89,6 +96,8 @@ class GAN(modules.WCMIModule):
 	def gan_n(self, gan_n):
 		if gan_n is None:
 			gan_n = default_gan_n
+		if not hasattr(self, "checkpoint_extra"):
+			self.checkpoint_extra = {}
 		self.checkpoint_extra['gan_n'] = gan_n
 
 	# Utility: get input dimension: num_sim_inputs + gan_n
@@ -108,16 +117,16 @@ class GAN(modules.WCMIModule):
 		# Set the neural network architecture.
 
 		self.generator = nn.Sequential(
-			nn.Bilinear(self.gan_n, self.num_sim_outputs, 90),
+			nn.Bilinear(self.gan_n, self.simulation_info.num_sim_outputs, 90),
 			nn.LeakyReLU(0.1),
 			nn.Dropout(p=0.02),
-			nn.Linear(90, self.num_sim_inputs),
+			nn.Linear(90, self.simulation_info.num_sim_inputs),
 			nn.Tanh() if data.is_standardized_negative() else nn.LeakyReLU(0.1),
 			#nn.BatchNorm1d(self.simulation_info.num_sim_inputs),
 		)
 
 		self.discriminator = nn.Sequential(
-			nn.Bilinear(self.simulation_info.num_sim_outputs, self.simulation_info.sum_sim_inputs, 90),
+			nn.Bilinear(self.simulation_info.num_sim_outputs, self.simulation_info.num_sim_inputs, 90),
 			nn.LeakyReLU(0.1),
 			nn.Dropout(p=0.02),
 			nn.Linear(90, 1),
@@ -131,13 +140,13 @@ class GAN(modules.WCMIModule):
 		DISCRIMINATOR_ONLY, or ADVERSARIAL.
 		"""
 		if subnetwork_selection is None:
-			subnetwork_selection = GANSubnetworkSelection.DEFAULT
-		if subnetwork_selection == GANSubnetworkSelection.DEFAULT:
+			subnetwork_selection = GAN.GANSubnetworkSelection.DEFAULT
+		if subnetwork_selection == GAN.GANSubnetworkSelection.DEFAULT:
 			subnetwork_selection = self.default_subnetwork_selection
-		if subnetwork_selection is None or subnetwork_selection == GANSubnetworkSelection.DEFAULT:
+		if subnetwork_selection is None or subnetwork_selection == GAN.GANSubnetworkSelection.DEFAULT:
 			subnetwork_selection = DEFAULT_DEFAULT_SUBNETWORK_SELECTION
-		if subnetwork_selection is None or subnetwork_selection == GANSubnetworkSelection.DEFAULT:
-			subnetwork_selection = GANSubnetworkSelection.GENERATOR_ONLY
+		if subnetwork_selection is None or subnetwork_selection == GAN.GANSubnetworkSelection.DEFAULT:
+			subnetwork_selection = GAN.GANSubnetworkSelection.GENERATOR_ONLY
 		return subnetwork_selection
 
 	def set_default_subnetwork_selection(self, subnetwork_selection=DEFAULT_DEFAULT_SUBNETWORK_SELECTION):
@@ -161,8 +170,8 @@ class GAN(modules.WCMIModule):
 
 		# Determine whether subnetwork selection contains the generator.
 		return subnetwork_selection in [
-			GANSubnetworkSelection.GENERATOR_ONLY,
-			GANSubnetworkSelection.ADVERSARIAL,
+			GAN.GANSubnetworkSelection.GENERATOR_ONLY,
+			GAN.GANSubnetworkSelection.ADVERSARIAL,
 		]
 
 	def includes_discriminator(self, subnetwork_selection=GANSubnetworkSelection.DEFAULT):
@@ -175,8 +184,8 @@ class GAN(modules.WCMIModule):
 
 		# Determine whether subnetwork selection contains the discriminator.
 		return subnetwork_selection in [
-			GANSubnetworkSelection.DISCRIMINATOR_ONLY,
-			GANSubnetworkSelection.ADVERSARIAL,
+			GAN.GANSubnetworkSelection.DISCRIMINATOR_ONLY,
+			GAN.GANSubnetworkSelection.ADVERSARIAL,
 		]
 
 	def includes_both(self, subnetwork_selection=GANSubnetworkSelection.DEFAULT):
@@ -235,6 +244,7 @@ class GAN(modules.WCMIModule):
 				**dict(
 					standardize_input_only=standardize_input_only,
 					standardize_input_mask=standardize_input_mask,
+					subnetwork_selection=subnetwork_selection,
 				),
 				**kwargs,
 			},

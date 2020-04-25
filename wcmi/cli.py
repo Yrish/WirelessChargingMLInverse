@@ -251,7 +251,7 @@ def get_argument_parser(prog=None):
 
 	parser.add_argument("--save-model", type=str, help="(All actions): after training, save the model to this file.")
 	parser.add_argument(
-		"--gan-n", "--gan-n-parameters", type=int, default=gan.default_gan_n,
+		"--gan-n", "--gan-num-gen-params", type=int, default=gan.default_gan_n,
 		help="(train action): if using the GAN, specify the number of additional GAN generator parameters (default: {0:d}).  Fail when loading CSV file with a different --gan-n setting.".format(
 			gan.default_gan_n
 		),

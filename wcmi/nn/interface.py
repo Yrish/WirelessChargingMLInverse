@@ -162,9 +162,25 @@ def train(
 
 	testing_labels = testing_data.view(testing_data.shape)[:, :num_sim_in_columns]
 	testing_input  = testing_data.view(testing_data.shape)[:, num_sim_in_columns:num_sim_in_out_columns]
+	testing_gan_n  = testing_data.view(testing_data.shape)[:, num_sim_in_out_columns:]
 
 	training_labels = training_data.view(training_data.shape)[:, :num_sim_in_columns]
 	training_input  = training_data.view(training_data.shape)[:, num_sim_in_columns:num_sim_in_out_columns]
+	training_gan_n  = training_data.view(training_data.shape)[:, num_sim_in_out_columns:]
+
+	# Ensure the GAN generation columns are correctly numbered.
+	if gan_force_fixed_gen_params:
+		# Are fixed GAN generation parameters available?
+		if training_data.shape[1] <= num_sim_in_out_columns:
+			raise WCMIError("error: train: --gan-force-fixed-gen-params was specified, but no GAN generation parameters are available in the loaded CSV data.")
+	if gan_n is not None and gan_n >= 1:
+		gan_n_columns_available = training_data.shape[1] - num_sim_in_out_columns
+		if gan_n_columns_available != gan_n and gan_n_columns_available != 0:
+			raise WCMIError(
+				"error: train: the number of GAN columns available in the CSV data does not match the --gan-n variable: {0:d} != {1:d}".format(
+					gan_n_columns_available, gan_n,
+				)
+			)
 
 	# Let the user know on which device training is occurring.
 	logger.info("device: {0:s}".format(str(data.device)))
@@ -185,7 +201,7 @@ def train(
 		loss_function = nn.MSELoss()
 
 		# Give the optimizer a reference to our model's parameters, which
-		# includes the models weights and biases.  The optimizer will update
+		# include the model's weights and biases.  The optimizer will update
 		# them.
 		optimizer = torch.optim.SGD(
 			model.parameters(),
@@ -213,14 +229,14 @@ def train(
 			# Shuffle the rows of data.
 			training_data = training_data[torch.randperm(training_data.size()[0])].to(data.device)
 
-			# Clear the errors tensors for this epoch.
+			# Clear the error tensors for this epoch.
 			current_epoch_testing_errors = torch.zeros(testing_labels.shape, out=current_epoch_testing_errors, device=data.device, requires_grad=False)
 			current_epoch_training_errors = torch.zeros(training_labels.shape, out=current_epoch_training_errors, device=data.device, requires_grad=False)
 
 			# Zero the gradient.
 			optimizer.zero_grad()
 
-			# Run all batches in the epoch.
+			# Training phase: run all training batches in the epoch.
 			for batch in range(num_training_batches):
 				if not status_enabled or status_every_sample <= 0:
 					substatus_enabled = False
@@ -467,27 +483,24 @@ def train(
 			mse_output.to_csv(save_data_path, index=False)
 
 			logger.info("")
-			logger.info("Wrote MSE errors (testing MSE for each epoch and then training MSE for each epoch) `{0:s}'.".format(save_data_path))
-
-		# We're done.  Catch you later.
-		logger.info("")
-		logger.info("Done training all epochs.")
-		logger.info("Have a good day.")
-
+			logger.info("Wrote MSE errors (testing MSE for each epoch and then training MSE for each epoch) to `{0:s}'.".format(save_data_path))
 	else:
+		# Define simple tensors for the actual GAN labels:
+		generated_labels = torch.full((batch_size, 1), gan.GAN.GENERATED_LABEL_ITEM, device=data.device)
+		real_labels      = torch.full((batch_size, 1), gan.GAN.REAL_LABEL_ITEM,      device=data.device)
+
 		# Keep the generator and the discriminator loss in balance.  If the
 		# loss of the other is more than threshold times this value, pause
 		# training this one.
-		#data.gan_training_pause_threshold
+		pause_threshold = data.gan_training_pause_threshold
 
 		# Within an epoch, per-sample losses.
 		# Cleared each epoch.
 		current_epoch_num_generator_training_samples = 0
 		current_epoch_num_discriminator_training_samples = 0
-		current_epoch_generator_training_losses = torch.zeros((num_training_samples,), device=data.device, requires_grad=False)
-		current_epoch_discriminator_training_losses = torch.zeros((num_training_samples,), device=data.device, requires_grad=False)
-		# generator_loss, column_loss
-		current_epoch_testing_losses = torch.zeros((num_testing_samples,2,), device=data.device, requires_grad=False)
+		# discriminator_real_loss, discriminator_generated_loss, generator_loss
+		current_epoch_training_losses = torch.zeros((num_training_samples,3,), device=data.device, requires_grad=False)
+		current_epoch_testing_losses = torch.zeros((num_testing_samples,3,), device=data.device, requires_grad=False)
 
 		# Per-epoch losses.
 		#
@@ -495,55 +508,344 @@ def train(
 		# calculated BCE loss for each column, obtained by finding the mean BCE
 		# loss for each sample within a given column.
 		epoch_losses_columns = [
-			# During the testing phase in this epoch, what was the mean BCE
-			# loss for the generator?  How good was it at fooling the
-			# discriminator, when using test input?
-			"testing_mean_generator_bce_loss",
+			# What was the mean discriminator loss for this epoch during
+			# training for real data?
+			"training_mean_discriminator_real_bce_loss",
 
-			# During the testing phase in this epoch, what was the mean BCE
-			# loss for the generator?  How good was it at fooling the
-			# discriminator?
-			"testing_mean_discriminator_bce_loss",
-
-			# For how many samples was the generator trained while not paused
-			# during the training of this epoch?
-			#
-			# If this value is 0, then there was no training performed on the
-			# generator for this epoch, and the training mean loss columns do not
-			# represent mean losses, but the testing mean loss columns are
-			# still valid.
-			"num_generator_training_samples",
-
-			# For how many samples was the discriminator trained while not
-			# paused during the training of this epoch?
-			"num_discriminator_training_samples",
-
-			# For how many samples was the generator training paused during
-			# the training of this epoch?
-			"num_generator_training_paused",
-
-			# For how many samples was the discriminator training paused during
-			# the testing this epoch?
-			"num_discriminator_training_paused",
+			# What was the mean discriminator loss for this epoch during
+			# training for generated data?
+			"training_mean_discriminator_generated_bce_loss",
 
 			# What was the mean generator loss in the adversarial network for
 			# this epoch during training?
 			"training_mean_generator_bce_loss",
 
-			# What was the mean discriminator loss for this epoch during
-			# training?
-			"training_mean_discriminator_bce_loss",
+			# During the testing phase in this epoch, what was the mean BCE
+			# loss for the discriminator?
+			"testing_mean_discriminator_bce_loss",
+
+			# During the testing phase in this epoch, what was the mean BCE
+			# loss for the generator?  How good was it at fooling the
+			# discriminator, when using test input?
+			"testing_mean_generator_bce_loss",
+
+			# For how many samples was the discriminator trained while not
+			# paused during the training of this epoch?
+			#
+			# If this value is 0, then there was no training performed on the
+			# generator for this epoch.
+			"num_discriminator_training_samples",
+
+			# For how many samples was the generator trained while not paused
+			# during the training of this epoch?
+			"num_generator_training_samples",
+
+			# For how many samples was the discriminator training paused during
+			# the testing this epoch?
+			"num_discriminator_training_paused",
+
+			# For how many samples was the generator training paused during
+			# the training of this epoch?
+			"num_generator_training_paused",
 		]
 		epoch_losses = torch.zeros((num_epochs, len(epoch_losses_columns),), device=data.device, requires_grad=False)
 
-		# TODO
-		logger.error("(To be implemented...)")
-		raise NotImplementedError("error: train: the train action is not yet implemented for --gan.")
-		pass
-		return
+		# Define the loss function and the optimizers.
+		loss_function = nn.BCELoss()
+
+		# Give the optimizer a reference to our model's parameters, which
+		# include the model's weights and biases.  The optimizer will update
+		# them.
+		#
+		# c.f. https://pytorch.org/tutorials/beginner/dcgan_faces_tutorial.html
+		generator_optimizer = torch.optim.SGD(
+			model.generator.parameters(),
+			lr=learning_rate,
+			momentum=data.momentum,
+			weight_decay=data.weight_decay,
+			dampening=data.dampening,
+			nesterov=data.nesterov,
+		)
+
+		discriminator_optimizer = torch.optim.SGD(
+			model.discriminator.parameters(),
+			lr=learning_rate,
+			momentum=data.momentum,
+			weight_decay=data.weight_decay,
+			dampening=data.dampening,
+			nesterov=data.nesterov,
+		)
+
+		# Run all epochs.
+		for epoch in range(num_epochs):
+			# Should we print a status update?
+			if status_every_epoch <= 0:
+				status_enabled = False
+			else:
+				status_enabled = epoch % status_every_epoch == 0
+
+			if status_enabled:
+				#if epoch > 1:
+				#	logger.info("")
+				logger.info("")
+				logger.info("Beginning epoch #{0:,d}/{1:,d}.".format(epoch + 1, num_epochs))
+
+			# Shuffle the rows of data.
+			training_data = training_data[torch.randperm(training_data.size()[0])].to(data.device)
+
+			# Clear the current epoch data for this epoch.
+			current_epoch_num_generator_training_samples = 0
+			current_epoch_num_discriminator_training_samples = 0
+			# discriminator_real_loss, discriminator_generated_loss, generator_loss
+			current_epoch_training_losses = torch.zeros(
+				current_epoch_training_losses.shape,
+				out=current_epoch_training_losses,
+				device=data.device, requires_grad=False,
+			)
+			current_epoch_testing_losses = torch.zeros(
+				current_epoch_testing_losses.shape,
+				out=current_epoch_testing_losses,
+				device=data.device, requires_grad=False,
+			)
+
+			# Zero the gradient.
+			generator_optimizer.zero_grad()
+			discriminator_optimizer.zero_grad()
+
+			# Training phase: run all training batches in the epoch.
+			for batch in range(num_training_batches):
+				if not status_enabled or status_every_sample <= 0:
+					substatus_enabled = False
+				else:
+					# Example:
+					# 	0*2=0  % 4=0  < 2
+					# 	1*2=2  % 4=2 !< 2
+					# 	2*2=4  % 4=0  < 2
+					# 	3*2=6  % 4=2 !< 2
+					# 	4*2=8  % 4=0  < 2
+					# 	5*2=10 % 4=2 !< 2
+					substatus_enabled = batch * batch_size % status_every_sample < batch_size
+
+				# Print a status for the next sample?
+				if substatus_enabled:
+					logger.info("  Beginning sample #{0:,d}/{1:,d} (epoch #{2:,d}/{3:,d}).".format(
+						batch * batch_size + 1,
+						num_samples,
+						epoch + 1,
+						num_epochs,
+					))
+
+				# Get this batch of samples.
+				batch_slice = slice(batch * batch_size, (batch + 1) * batch_size)  # i.e. [batch * batch_size:(batch + 1) * batch_size]
+
+				#batch_data             = training_data[batch_slice]
+				batch_input            = training_input[batch_slice]
+				batch_labels           = training_labels[batch_slice]
+
+				batch_generated_labels = training_labels[:len(batch_input)]
+				batch_real_labels      = training_labels[:len(batch_input)]
+
+				# Does the user want fixed GAN generation parameters?
+				if gan_force_fixed_gen_params:
+					gan_gen_params = training_gan_n.view(training_gan_n.shape)[batch_slice]
+				else:
+					# Don't use fixed GAN generation parameters.
+					# Generate random generation parameters.
+					gan_gen_params = torch.rand((len(batch_input), gan_n), device=data.device)
+
+				# Train:
+				# 	Discriminator:
+				# 		One batch of real data.
+				# 		One batch of generated data.
+				# 	Generator:
+				# 		Same generated data in the previous step.
+
+				# Forward passes.
+
+				# Discriminator: forward pass one batch of real data.
+				discriminator_real_output = model(batch_input, batch_labels, subnetwork_selection=gan.GAN.GANSubnetworkSelection.DISCRIMINATOR_ONLY)
+				discriminator_real_loss = loss_function(discriminator_real_output, batch_real_labels)
+
+				# Generate a batch of generated_data
+				generator_output = model(batch_input, gan_gen_params, subnetwork_selection=gan.GAN.GANSubnetworkSelection.GENERATOR_ONLY)
+
+				# Discriminator: forward pass one batch of generated data.
+				discriminator_generated_output = model(batch_input, batch_labels, subnetwork_selection=gan.GAN.GANSubnetworkSelection.DISCRIMINATOR_ONLY)
+				discriminator_generated_loss = loss_function(discriminator_generated_output, batch_generated_labels)
+
+				# Generator: get loss for the same forward pass.
+				generator_loss = loss_function(discriminator_generated_output, batch_real_labels)
+
+				# Train the discriminator if it isn't outperforming the
+				# generator by too much.
+				if discriminator_loss > generator_loss - skip_threshold:
+					current_epoch_num_discriminator_training_samples += len(batch_input)
+
+					# Backpropogate to calculate the gradient and then optimize to
+					# update the weights (parameters).
+					discriminator_real_loss.backward()
+					discriminator_optimizer.step()
+
+					discriminator_generated_loss.backward()
+					discriminator_optimizer.step()
+
+				# Train the generator if it isn't outperforming the
+				# discriminator by too much.
+				if generator_loss > discriminator_loss - skip_threshold:
+					current_epoch_num_generator_training_samples += len(batch_input)
+
+					generator_loss.backward()
+					generator_optimizer.step()
+
+				# Record the losses for this batch.
+				current_epoch_training_losses[batch_slice] = torch.stack(
+					(discriminator_real_loss, discriminator_generated_loss, generator_loss),
+					axis=1,
+				)
+
+			# Perform the testing phase for this epoch.
+			#
+			# Disable gradient calculation during this phase with
+			# torch.no_grad() since we're not doing backpropagation here.
+			with torch.no_grad():
+				for batch in range(num_testing_batches):
+					if not status_enabled or status_every_sample <= 0:
+						substatus_enabled = False
+					else:
+						substatus_enabled = batch * batch_size % status_every_sample < batch_size
+
+					# Print a status for the next sample?
+					if substatus_enabled:
+						logger.info("  Beginning sample #{0:,d}/{1:,d} (testing phase) (epoch #{2:,d}/{3:,d}).".format(
+							batch * batch_size + 1,
+							num_samples,
+							epoch + 1,
+							num_epochs,
+						))
+
+					# Get this batch of samples.
+					batch_slice = slice(batch * batch_size, (batch + 1) * batch_size)  # i.e. [batch * batch_size:(batch + 1) * batch_size]
+
+					#batch_data             = testing_data[batch_slice]
+					batch_input            = testing_input[batch_slice]
+					batch_labels           = testing_labels[batch_slice]
+
+					batch_generated_labels = testing_labels[:len(batch_input)]
+					batch_real_labels      = testing_labels[:len(batch_input)]
+
+					# Does the user want fixed GAN generation parameters?
+					if gan_force_fixed_gen_params:
+						gan_gen_params = testing_gan_n.view(testing_gan_n.shape)[batch_slice]
+					else:
+						# Don't use fixed GAN generation parameters.
+						# Generate random generation parameters.
+						gan_gen_params = torch.rand((len(batch_input), gan_n), device=data.device)
+
+					# Testing:
+					# 	Discriminator:
+					# 		One batch of real data.
+					# 		One batch of generated data.
+					# 	Generator:
+					# 		Same generated data in the previous step.
+
+					# Forward passes.
+
+					# Discriminator: forward pass one batch of real data.
+					discriminator_real_output = model(batch_input, batch_labels, subnetwork_selection=gan.GAN.GANSubnetworkSelection.DISCRIMINATOR_ONLY)
+					discriminator_real_loss = loss_function(discriminator_real_output, batch_real_labels)
+
+					# Generate a batch of generated_data
+					generator_output = model(batch_input, gan_gen_params, subnetwork_selection=gan.GAN.GANSubnetworkSelection.GENERATOR_ONLY)
+
+					# Discriminator: forward pass one batch of generated data.
+					discriminator_generated_output = model(batch_input, batch_labels, subnetwork_selection=gan.GAN.GANSubnetworkSelection.DISCRIMINATOR_ONLY)
+					discriminator_generated_loss = loss_function(discriminator_generated_output, batch_generated_labels)
+
+					# Generator: get loss for the same forward pass.
+					generator_loss = loss_function(discriminator_generated_output, batch_real_labels)
+
+					# Record the losses for this batch.
+					current_epoch_testing_losses[batch_slice] = torch.stack(
+						(discriminator_real_loss, discriminator_generated_loss, generator_loss),
+						axis=1,
+					)
+
+			# We're almost done with this epoch.  Just store our results for
+			# this epoch.
+
+			# "training_mean_discriminator_real_bce_loss"
+			epoch_losses[epoch][0] = current_epoch_training_losses[:, 0].mean()
+
+			# "training_mean_discriminator_generated_bce_loss"
+			epoch_losses[epoch][1] = current_epoch_training_losses[:, 1].mean()
+
+			# "training_mean_generator_bce_loss"
+			epoch_losses[epoch][2] = current_epoch_training_losses[:, 2].mean()
+
+			# "testing_mean_discriminator_generated_bce_loss"
+			epoch_losses[epoch][3] = current_epoch_testing_losses[:, 0:2].mean()
+
+			# "testing_mean_generator_bce_loss"
+			epoch_losses[epoch][4] = current_epoch_testing_losses[:, 2].mean()
+
+			# "num_discriminator_training_samples"
+			epoch_losses[epoch][5] = current_epoch_num_discriminator_training_samples
+
+			# "num_generator_training_samples"
+			epoch_losses[epoch][6] = current_epoch_num_generator_training_samples
+
+			# "num_discriminator_training_paused"
+			epoch_losses[epoch][7] = current_epoch_num_discriminator_training_samples
+
+			# "num_generator_training_paused"
+			epoch_losses[epoch][8] = current_epoch_num_generator_training_samples
+
+			# Let the user know we've finished this epoch.
+			if status_enabled:
+				logger.info(
+					"Done training epoch #{0:,d}/{1:,d} (mean testing gen, disc loss: {2:f}, {3:f}) (mean training gen, disc_real, disc_gen loss: {4:f}, {5:f}, {6:f}) (lower is more accurate)) (paused gen, disc: {7:d}, {8:d}).".format(
+						epoch + 1,
+						num_epochs,
+
+						epoch_losses[epoch][0],
+						epoch_losses[epoch][1],
+						epoch_losses[epoch][2],
+						epoch_losses[epoch][3],
+						epoch_losses[epoch][4],
+
+						epoch_losses[epoch][7],
+						epoch_losses[epoch][8],
+					)
+				)
+
+		# We are done training the GAN neural network.
+		#
+		# Optionally get and print some stats here.
+
+		# Did the user specify to save BCE errors?
+		if save_data_path is not None:
+			# c.f. https://stackoverflow.com/a/41591077
+			for int_column in [
+				"num_discriminator_training_samples",
+				"num_generator_training_samples",
+				"num_discriminator_training_paused",
+				"num_generator_training_paused",
+			]:
+				bce_output[int_column] = mse_output[int_column].astype(int)
+			bce_output.to_csv(save_data_path, index=False)
+
+			logger.info("")
+			logger.info("Wrote training epoch data to `{0:s}'.".format(save_data_path))
 
 	# Save the trained model.
-	model.save()
+	model.save(logger=logger)
+	logger.info("")
+	logger.info("Saved trained model to `{0:s}'.".format(model.save_model_path))
+
+	# We're done.  Catch you later.
+	logger.info("")
+	logger.info("Done training all epochs.")
+	logger.info("Have a good day.")
 
 def run(
 	use_gan=True, load_model_path=None, load_data_path=None,

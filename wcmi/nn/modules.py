@@ -69,7 +69,8 @@ class WCMIModule(nn.Module):
 		self.population_max_out = population_max_out
 
 		# Set other persistent properties.
-		self.checkpoint_extra = {}
+		if not hasattr(self, "checkpoint_extra"):
+			self.checkpoint_extra = {}
 
 		# Set other attributes.
 		self.bounds_min_in  = torch.tensor(self.simulation_info.sim_output_mins)
@@ -94,7 +95,7 @@ class WCMIModule(nn.Module):
 			if not self.initialized:
 				self.initialize_parameters()
 
-	def save(self, save_model_path=None, update_save_model_path=True):
+	def save(self, save_model_path=None, update_save_model_path=True, logger=logger):
 		"""
 		Save the pytorch model.
 

@@ -7,7 +7,6 @@ Information about the ANSYS simulation.
 
 import csv
 import pandas as pd
-import torch
 
 from wcmi.exception import WCMIError
 

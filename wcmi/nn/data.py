@@ -7,6 +7,35 @@ Module providing some constants.
 
 import torch
 
+# standardize is checked, then normalize_population, then normalize_bounds.
+
+# Whether to standardize data input and read from a network (use mean and
+# stddev).
+standardize = True
+
+# Whether to scale and translate data input and read from a model (use min and
+# max) according to the distribution of the entire dataset used.
+normalize_population = False
+
+# Whether to scale and translate data input and read from a model (use min and
+# max) according .
+normalize_bounds = False
+
+# When using either normalization technique, let the values be in the range
+# [-1, -1] rather than [0, 1].
+normalize_negative = True
+
+def is_standardized():
+	"""Determine whether any standardization or normalization is enabled."""
+	return standardize or normalize_population or normalize_bounds
+
+def is_standardized_negative():
+	"""
+	Determine whether any standardization or normalization is enabled and
+	the standardized values can be negative.
+	"""
+	return is_standardized() and (standardize or normalize_negative)
+
 # The default --gan-n value: the default number of additional input neurons to
 # the generator beyond the 5 desired simulation output values.
 default_gan_n = 8

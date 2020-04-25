@@ -7,6 +7,7 @@ package.
 """
 
 import pandas as pd
+import math
 import numpy as np
 import os
 import shutil
@@ -59,6 +60,51 @@ def train(
 	if len(simulation_data.data) <= 0:
 		raise WCMIError("error: train requires at least one sample in the CSV file.")
 
+	# Calculate sizes, numbers, and lengths.
+	num_samples = len(simulation_data.data)
+	num_testing_samples = int(round(data.test_proportion * num_samples))  # (redundant int())
+	num_training_samples = num_samples - num_testing_samples
+
+	if batch_size <= 0:
+		batch_size = num_samples
+
+	num_batches = num_samples // batch_size
+	final_batch_size = num_samples % batch_size
+	if final_batch_size == 0:
+		final_batch_size = batch_size
+
+	num_training_batches = num_training_samples // batch_size
+	final_training_batch_size = num_training_samples % batch_size
+	if final_training_batch_size == 0:
+		final_training_batch_size = training_batch_size
+
+	num_testing_batches = num_testing_samples // batch_size
+	final_testing_batch_size = num_testing_samples % batch_size
+	if final_testing_batch_size == 0:
+		final_testing_batch_size = testing_batch_size
+
+	# Get the input and labels (target).
+	num_sim_in_columns     = simulation_data.simulation_info.num_sim_inputs
+	num_sim_in_out_columns = num_sim_in_columns + simulation_data.simulation_info.num_sim_outputs
+
+	#npdata = simulation_data.data.values[:, :num_sim_in_out_columns]  # (No need for a numpy copy.)
+	all_data = torch.Tensor(simulation_data.data.values[:, :num_sim_in_out_columns]).to(data.device)
+	all_labels = all_data.view(all_data.shape)[:, :num_sim_in_columns]
+	all_input  = all_data.view(all_data.shape)[:, num_sim_in_columns:num_sim_in_out_columns]
+
+	# Get mean, stddev, min, and max of each input and label column for
+	# standardization or normalization.
+	all_nplabels  = all_labels.numpy()
+	all_npinput   = all_input.numpy()
+	label_means = torch.tensor(np.apply_along_axis(np.mean, axis=0, arr=all_nplabels))
+	label_stds  = torch.tensor(np.apply_along_axis(np.std,  axis=0, arr=all_nplabels))
+	label_mins  = torch.tensor(np.apply_along_axis(np.min,  axis=0, arr=all_nplabels))
+	label_maxs  = torch.tensor(np.apply_along_axis(np.max,  axis=0, arr=all_nplabels))
+	input_means = torch.tensor(np.apply_along_axis(np.mean, axis=0, arr=all_npinput))
+	input_stds  = torch.tensor(np.apply_along_axis(np.std,  axis=0, arr=all_npinput))
+	input_mins  = torch.tensor(np.apply_along_axis(np.min,  axis=0, arr=all_npinput))
+	input_maxs  = torch.tensor(np.apply_along_axis(np.max,  axis=0, arr=all_npinput))
+
 	# Load the model.
 	#
 	# Optionally, the model might be randomly initialized if it hasn't been
@@ -69,72 +115,48 @@ def train(
 		load_model_path=load_model_path,
 		save_model_path=save_model_path,
 		auto_load_model=True,
+		population_mean_in=input_means,
+		population_std_in=input_stds,
+		population_min_in=input_mins,
+		population_max_in=input_maxs,
+		population_mean_out=label_means,
+		population_std_out=label_stds,
+		population_min_out=label_mins,
+		population_max_out=label_maxs,
 		**mdl_kwargs,
 	)
 	# If CUDA is available, move the model to the GPU.
 	model = model.to(data.device)
 
+	# Split data into training data and test data.  The test data will be
+	# invisible during the training (except to report accuracies).
+
+	# Set a reproducible initial seed for a reproducible split, but then
+	# reset the seed after the split.
+	torch.random.manual_seed(data.testing_split_seed)
+
+	# Shuffle the rows of data.
+	#np.random.shuffle(npdata)
+	# c.f. https://stackoverflow.com/a/53284632
+	all_data = all_data[torch.randperm(all_data.size()[0])].to(data.device)
+
+	# Restore randomness.
+	#torch.random.manual_seed(torch.random.seed())
+	# Fix an error, c.f.
+	# https://discuss.pytorch.org/t/initial-seed-too-large/28832
+	torch.random.manual_seed(torch.random.seed() & ((1<<63)-1))
+
+	testing_data = all_data.view(all_data.shape)[:num_testing_samples]
+	training_data = all_data.view(all_data.shape)[num_testing_samples:]
+
+	testing_labels = testing_data.view(testing_data.shape)[:, :num_sim_in_columns]
+	testing_input  = testing_data.view(testing_data.shape)[:, num_sim_in_columns:num_sim_in_out_columns]
+
+	training_labels = training_data.view(training_data.shape)[:, :num_sim_in_columns]
+	training_input  = training_data.view(training_data.shape)[:, num_sim_in_columns:num_sim_in_out_columns]
+
 	# Train the model.
 	if not use_gan:
-		# Calculate sizes, numbers, and lengths.
-		num_samples = len(simulation_data.data)
-		num_testing_samples = int(round(data.test_proportion * num_samples))  # (redundant int())
-		num_training_samples = num_samples - num_testing_samples
-
-		if batch_size <= 0:
-			batch_size = num_samples
-
-		num_batches = num_samples // batch_size
-		final_batch_size = num_samples % batch_size
-		if final_batch_size == 0:
-			final_batch_size = batch_size
-
-		num_training_batches = num_training_samples // batch_size
-		final_training_batch_size = num_training_samples % batch_size
-		if final_training_batch_size == 0:
-			final_training_batch_size = training_batch_size
-
-		num_testing_batches = num_testing_samples // batch_size
-		final_testing_batch_size = num_testing_samples % batch_size
-		if final_testing_batch_size == 0:
-			final_testing_batch_size = testing_batch_size
-
-		# Get the input and labels (target).
-		num_sim_in_columns     = simulation_data.simulation_info.num_sim_inputs
-		num_sim_in_out_columns = num_sim_in_columns + simulation_data.simulation_info.num_sim_outputs
-
-		#npdata = simulation_data.data.values[:, :num_sim_in_out_columns]  # (No need for a numpy copy.)
-		all_data = torch.Tensor(simulation_data.data.values[:, :num_sim_in_out_columns]).to(data.device)
-		all_labels = all_data.view(all_data.shape)[:, :num_sim_in_columns]
-		all_input  = all_data.view(all_data.shape)[:, num_sim_in_columns:num_sim_in_out_columns]
-
-		# Split data into training data and test data.  The test data will be
-		# invisible during the training (except to report accuracies).
-
-		# Set a reproducible initial seed for a reproducible split, but then
-		# reset the seed after the split.
-		torch.random.manual_seed(data.testing_split_seed)
-
-		# Shuffle the rows of data.
-		#np.random.shuffle(npdata)
-		# c.f. https://stackoverflow.com/a/53284632
-		all_data = all_data[torch.randperm(all_data.size()[0])].to(data.device)
-
-		# Restore randomness.
-		#torch.random.manual_seed(torch.random.seed())
-		# Fix an error, c.f.
-		# https://discuss.pytorch.org/t/initial-seed-too-large/28832
-		torch.random.manual_seed(torch.random.seed() & ((1<<63)-1))
-
-		testing_data = all_data.view(all_data.shape)[:num_testing_samples]
-		training_data = all_data.view(all_data.shape)[num_testing_samples:]
-
-		testing_labels = testing_data.view(testing_data.shape)[:, :num_sim_in_columns]
-		testing_input  = testing_data.view(testing_data.shape)[:, num_sim_in_columns:num_sim_in_out_columns]
-
-		training_labels = training_data.view(training_data.shape)[:, :num_sim_in_columns]
-		training_input  = training_data.view(training_data.shape)[:, num_sim_in_columns:num_sim_in_out_columns]
-
 		# Get a tensor to store predictions for each epoch.  It will be
 		# overwritten at each epoch.
 		current_epoch_testing_errors = torch.zeros(testing_labels.shape, device=data.device, requires_grad=False)
@@ -567,6 +589,7 @@ def run(use_gan=True, load_model_path=None, load_data_path=None, save_data_path=
 		# Warn if the std is <= this * (max_bound - min_bound).
 		std_warn_threshold = 0.1
 		num_warnings = 0
+		unique_warn_threshold = 25
 		for idx, name in enumerate(simulation_data.data.columns.values[:simulation_data.simulation_info.num_sim_inputs]):
 			std = npoutput_stds[idx]
 			this_threshold = std_warn_threshold * (input_npmaxs[idx] - input_npmins[idx])
@@ -576,6 +599,21 @@ def run(use_gan=True, load_model_path=None, load_data_path=None, save_data_path=
 			elif std <= this_threshold:
 				print("WARNING: there is little variance in the predictions for simulation input parameter #{0:d} (`{1:s}`): std <= this_threshold: {2:f} <= {3:f}.".format(idx + 1, name, std, this_threshold))
 				num_warnings += 1
+			else:
+				# This may be inefficient, but count unique values and warn if
+				# there are few.
+				col = npoutput[:,idx]
+				unique = set(npoutput[:,idx].tolist())
+				if len(unique) <= unique_warn_threshold:
+					print("WARNING: there are few unique values (#{0:d}) for predictions for simulation input parameter #{1:d} (`{2:s}`):".format(
+						len(unique), idx + 1, name
+					))
+					for val in sorted(list(unique)):
+						count = len([x for x in col if math.isclose(x, val)])
+						if count > 1:
+							print("  {0:s} (x{1:d})".format(str(val), count))
+						else:
+							print("  {0:s}".format(str(val)))
 		if num_warnings >= 1:
 			print("")
 

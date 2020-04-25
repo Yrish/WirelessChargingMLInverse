@@ -11,6 +11,8 @@ import torch.nn as nn
 
 from wcmi.nn import modules
 
+import wcmi.nn.data as data
+
 class Dense(modules.WCMIModule):
 	"""
 	The architecture for the dense model.
@@ -37,6 +39,6 @@ class Dense(modules.WCMIModule):
 			nn.LeakyReLU(0.1),
 			nn.Dropout(p=0.02),
 			nn.Linear(90, self.simulation_info.num_sim_inputs),
-			nn.LeakyReLU(),
-			#nn.BatchNorm1D(self.simulation_info.num_sim_inputs),
+			nn.Tanh() if data.is_standardized_negative() else nn.LeakyReLU(0.1),
+			#nn.BatchNorm1d(self.simulation_info.num_sim_inputs),
 		)

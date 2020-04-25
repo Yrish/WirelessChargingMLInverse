@@ -11,6 +11,7 @@ import math
 import numpy as np
 import os
 import shutil
+import string
 import torch
 import torch.nn as nn
 
@@ -159,6 +160,9 @@ def train(
 	training_labels = training_data.view(training_data.shape)[:, :num_sim_in_columns]
 	training_input  = training_data.view(training_data.shape)[:, num_sim_in_columns:num_sim_in_out_columns]
 
+	# Let the user know on which device training is occurring.
+	print("device: {0:s}".format(str(data.device)))
+
 	# Train the model.
 	if not use_gan:
 		# Get a tensor to store predictions for each epoch.  It will be
@@ -186,9 +190,6 @@ def train(
 			nesterov=data.nesterov,
 		)
 
-		# Let the user know on which device training is occurring.
-		print("device: {0:s}".format(str(data.device)))
-
 		# Run all epochs.
 		for epoch in range(num_epochs):
 			# Should we print a status update?
@@ -201,7 +202,7 @@ def train(
 				#if epoch > 1:
 				#	print("")
 				print("")
-				print("Beginning epoch #{0:d}/{1:d}.".format(epoch + 1, num_epochs))
+				print("Beginning epoch #{0:,d}/{1:,d}.".format(epoch + 1, num_epochs))
 
 			# Shuffle the rows of data.
 			training_data = training_data[torch.randperm(training_data.size()[0])].to(data.device)
@@ -229,7 +230,7 @@ def train(
 
 				# Print a status for the next sample?
 				if substatus_enabled:
-					print("  Beginning sample #{0:d}/{1:d} (epoch #{2:d}/{3:d}).".format(
+					print("  Beginning sample #{0:,d}/{1:,d} (epoch #{2:,d}/{3:,d}).".format(
 						batch * batch_size + 1,
 						num_samples,
 						epoch + 1,
@@ -247,6 +248,9 @@ def train(
 				batch_output = model(batch_input)
 				loss = loss_function(batch_output, batch_labels)
 
+				if substatus_enabled:
+					print("    MSE loss, mean of columns: {0:,f}".format(loss.item()))
+
 				# Record the errors for this batch.
 				current_epoch_training_errors[batch_slice] = batch_output.detach() - batch_labels.detach()
 
@@ -260,6 +264,7 @@ def train(
 			current_epoch_training_mse = (current_epoch_training_errors**2).mean(0)
 			epoch_training_mse[epoch] = current_epoch_training_mse
 			current_epoch_training_mse_norm = current_epoch_training_mse.norm()
+			current_epoch_training_mse_mean = current_epoch_training_mse.mean()
 
 			# Perform testing for this epoch.
 			#
@@ -284,7 +289,7 @@ def train(
 
 					# Print a status for the next sample?
 					if substatus_enabled:
-						print("  Beginning sample #{0:d}/{1:d} (testing phase) (epoch #{2:d}/{3:d}).".format(
+						print("  Beginning sample #{0:,d}/{1:,d} (testing phase) (epoch #{2:,d}/{3:,d}).".format(
 							total_batch * batch_size + 1,
 							num_samples,
 							epoch + 1,
@@ -302,6 +307,9 @@ def train(
 					batch_output = model(batch_input)
 					loss = loss_function(batch_output, batch_labels)
 
+					if substatus_enabled:
+						print("    MSE loss, mean of columns: {0:,f}".format(loss.item()))
+
 					# Record the errors for this batch.
 					current_epoch_testing_errors[batch_slice] = batch_output.detach() - batch_labels.detach()
 
@@ -310,16 +318,19 @@ def train(
 				current_epoch_testing_mse = (current_epoch_testing_errors**2).mean(0)
 				epoch_testing_mse[epoch] = current_epoch_testing_mse
 				current_epoch_testing_mse_norm = current_epoch_testing_mse.norm()
+				current_epoch_testing_mse_mean = current_epoch_testing_mse.mean()
 
 			# Unless we're outputting a status message every epoch, let the
 			# user know we've finished this epoch.
 			#if status_enabled and status_every_epoch > 1:
 			if status_enabled:
 				print(
-					"Done training epoch #{0:d}/{1:d} (testing vs. training MSE norm: {2:f} vs. {3:f} (lower is more accurate)).".format(
+					"Done training epoch #{0:,d}/{1:,d} (testing MSE norm (mean) vs. training MSE norm (mean): {2:,f} ({3:,f}) vs. {4:,f} ({5:,f}) (lower is more accurate)).".format(
 						epoch + 1, num_epochs,
 						current_epoch_testing_mse_norm,
+						current_epoch_testing_mse_mean,
 						current_epoch_training_mse_norm,
+						current_epoch_training_mse_mean,
 					)
 				)
 
@@ -334,15 +345,16 @@ def train(
 		print("")
 		print("Done training last epoch.  Preparing statistics...")
 
-		def stat_format(fmt, tvec=None, lvec=None, float_str_min_len=15):
+		def stat_format(fmt, tvec=None, lvec=None, float_str_min_len=13):
 			"""
 			Print a formatting line.  Specify tvec for a tensor vector (norm
 			added) or lvec for a list of strings.
 			"""
 			if tvec is not None:
 				return fmt.format(str(float_str_min_len)).format(
-					"<{0:s}>".format(", ".join(["{{0:{0:s}f}}".format(str(float_str_min_len)).format(component) for component in tvec])),
+					"<{0:s}>".format(", ".join(["{{0:{0:s},f}}".format(str(float_str_min_len)).format(component) for component in tvec])),
 					tvec.norm(),
+					tvec.mean(),
 				)
 			elif lvec is not None:
 				return fmt.format(str(float_str_min_len)).format(
@@ -359,39 +371,58 @@ def train(
 		e = clear
 		stat_fmts = (
 			("", None, None),
-			("Last testing MSE   (norm) : {{0:s}} ({{1:{0:s}f}})", last_testing_mse, None),
-			(b+"Last testing RMSE  (norm) : {{0:s}} ({{1:{0:s}f}})"+e, last_testing_mse.sqrt(), None),
-			("Last training MSE  (norm) : {{0:s}} ({{1:{0:s}f}})", last_training_mse, None),
-			("Last training RMSE (norm) : {{0:s}} ({{1:{0:s}f}})", last_training_mse.sqrt(), None),
+			("Last testing MSE   (norm) (mean) : {{0:s}} ({{1:{0:s},f}}) ({{2:{0:s},f}})", last_testing_mse, None),
+			(b+"Last testing RMSE  (norm) (mean) : {{0:s}} ({{1:{0:s},f}}) ({{2:{0:s},f}})"+e, last_testing_mse.sqrt(), None),
+			("Last training MSE  (norm) (mean) : {{0:s}} ({{1:{0:s},f}}) ({{2:{0:s},f}})", last_training_mse, None),
+			("Last training RMSE (norm) (mean) : {{0:s}} ({{1:{0:s},f}}) ({{2:{0:s},f}})", last_training_mse.sqrt(), None),
 			("", None, None),
-			("Label column names        : {{0:s}}", None, simulation_data.simulation_info.sim_input_names),
+			("Label column names               : {{0:s}}", None, simulation_data.simulation_info.sim_input_names),
 			("", None, None),
-			("All labels mean    (norm) : {{0:s}} ({{1:{0:s}f}})", all_labels.mean(0), None),
-			("All labels var     (norm) : {{0:s}} ({{1:{0:s}f}})", all_labels.var(0), None),
-			(b+"All labels stddev  (norm) : {{0:s}} ({{1:{0:s}f}})"+e, all_labels.std(0), None),
+			("All labels mean    (norm) (mean) : {{0:s}} ({{1:{0:s},f}}) ({{2:{0:s},f}})", all_labels.mean(0), None),
+			("All labels var     (norm) (mean) : {{0:s}} ({{1:{0:s},f}}) ({{2:{0:s},f}})", all_labels.var(0), None),
+			(b+"All labels stddev  (norm) (mean) : {{0:s}} ({{1:{0:s},f}}) ({{2:{0:s},f}})"+e, all_labels.std(0), None),
 			("", None, None),
-			("All labels min     (norm) : {{0:s}} ({{1:{0:s}f}})", torch.Tensor(np.quantile(all_nplabels, 0, 0)), None),
-			("...1st quartile    (norm) : {{0:s}} ({{1:{0:s}f}})", torch.Tensor(np.quantile(all_nplabels, 0.25, 0)), None),
-			("All labels median  (norm) : {{0:s}} ({{1:{0:s}f}})", torch.Tensor(np.quantile(all_nplabels, 0.5, 0)), None),
-			("...3rd quartile    (norm) : {{0:s}} ({{1:{0:s}f}})", torch.Tensor(np.quantile(all_nplabels, 0.75, 0)), None),
-			("All labels max     (norm) : {{0:s}} ({{1:{0:s}f}})", torch.Tensor(np.quantile(all_nplabels, 1, 0)), None),
+			("All labels min     (norm) (mean) : {{0:s}} ({{1:{0:s},f}}) ({{2:{0:s},f}})", torch.Tensor(np.quantile(all_nplabels, 0, 0)), None),
+			("...1st quartile    (norm) (mean) : {{0:s}} ({{1:{0:s},f}}) ({{2:{0:s},f}})", torch.Tensor(np.quantile(all_nplabels, 0.25, 0)), None),
+			("All labels median  (norm) (mean) : {{0:s}} ({{1:{0:s},f}}) ({{2:{0:s},f}})", torch.Tensor(np.quantile(all_nplabels, 0.5, 0)), None),
+			("...3rd quartile    (norm) (mean) : {{0:s}} ({{1:{0:s},f}}) ({{2:{0:s},f}})", torch.Tensor(np.quantile(all_nplabels, 0.75, 0)), None),
+			("All labels max     (norm) (mean) : {{0:s}} ({{1:{0:s},f}}) ({{2:{0:s},f}})", torch.Tensor(np.quantile(all_nplabels, 1, 0)), None),
 		)
 
-		def stat_fmt_lines(float_str_min_line):
-			"""Given a float_str_min_line value, return formatted stats lines."""
+		def stat_fmt_lines(float_str_min_len):
+			"""Given a float_str_min_len value, return formatted stats lines."""
 			return (*(
-				stat_format(*vals, float_str_min_len) for vals in stat_fmts
+				stat_format(*vals, float_str_min_len=float_str_min_len) for vals in stat_fmts
 			),)
-		def print_stat_fmt_lines(float_str_min_line):
-			"""Given a float_str_min_line value, print formatted stats lines."""
-			for line in stat_fmt_lines(float_str_min_line):
+		def print_stat_fmt_lines(float_str_min_len):
+			"""Given a float_str_min_len value, print formatted stats lines."""
+			for line in stat_fmt_lines(float_str_min_len):
 				print(line)
 
-		# Start at 15 and decrease until the maximimum line length is <=
+		def fmt_printable_strlen(s):
+			"""
+			Count the number of printable characters after removing prefixes or
+			suffix of b or e (multiple prefixes/suffixes currently not supported).
+			c.f. https://stackoverflow.com/a/92488
+			"""
+			count = 0
+			for formatting in [
+				bold, white, clear, b, e,
+			]:
+				if len(formatting) > 0:
+					if s.startswith(formatting):
+						s = formatting[len(formatting):]
+					if s.endswith(formatting):
+						s = formatting[:-len(formatting)]
+			for c in s:
+				if c in string.printable:
+					count += 1
+			return count
+
+		# Start at 13 and decrease until the maximimum line length is <=
 		# COLUMNS, then keep decreasing until the number of maximum lengthed
 		# lines changes.
-		#float_str_min_len = 15
-		float_str_min_len = 12
+		float_str_min_len = 13
 		if data.auto_size_formatting:
 			cols = None
 			columns, rows = shutil.get_terminal_size((1, 1))
@@ -406,8 +437,8 @@ def train(
 			# Try decreasing to 0, inclusive.
 			for try_float_str_min_len in range(float_str_min_len, -1, -1):
 				lines = stat_fmt_lines(try_float_str_min_len)
-				max_line_len = max([len(line) for line in lines])
-				max_line_len_count = len([line for line in lines if len(line) >= max_line_len])
+				max_line_len = max([fmt_printable_strlen(line) for line in lines])
+				max_line_len_count = len([line for line in lines if fmt_printable_strlen(line) >= max_line_len])
 				if cols is None or max_line_len_count <= cols:
 					if last_max_line_len_count is not None and max_line_len_count < last_max_line_len_count:
 						break
@@ -583,7 +614,7 @@ def run(use_gan=True, load_model_path=None, load_data_path=None, save_data_path=
 			print("All model predictions are within the minimum and maximum boundaries.")
 			print("")
 		else:
-			print("WARNING: #{0:d}/#{0:d} sample rows have been discarded from the CSV output due to out-of-bounds predictions.".format(num_lost_samples, old_num_samples))
+			print("WARNING: #{0:,d}/#{0:,d} sample rows have been discarded from the CSV output due to out-of-bounds predictions.".format(num_lost_samples, old_num_samples))
 			print("")
 
 	# Make sure the output isn't all the same.
@@ -601,10 +632,10 @@ def run(use_gan=True, load_model_path=None, load_data_path=None, save_data_path=
 			std = npoutput_stds[idx]
 			this_threshold = std_warn_threshold * (input_npmaxs[idx] - input_npmins[idx])
 			if std <= 0.0:
-				print("WARNING: all predictions for simulation input parameter #{0:d} (`{1:s}`) are the same!  Prediction: {2:f}.".format(idx + 1, name, npoutput[0][idx]))
+				print("WARNING: all predictions for simulation input parameter #{0:d} (`{1:s}`) are the same!  Prediction: {2:,f}.".format(idx + 1, name, npoutput[0][idx]))
 				num_warnings += 1
 			elif std <= this_threshold:
-				print("WARNING: there is little variance in the predictions for simulation input parameter #{0:d} (`{1:s}`): std <= this_threshold: {2:f} <= {3:f}.".format(idx + 1, name, std, this_threshold))
+				print("WARNING: there is little variance in the predictions for simulation input parameter #{0:d} (`{1:s}`): std <= this_threshold: {2:,f} <= {3:,f}.".format(idx + 1, name, std, this_threshold))
 				num_warnings += 1
 
 			# This may be inefficient, but count unique values and warn if
@@ -612,14 +643,14 @@ def run(use_gan=True, load_model_path=None, load_data_path=None, save_data_path=
 			col = npoutput[:,idx]
 			unique = set(npoutput[:,idx].tolist())
 			if len(unique) <= unique_warn_threshold:
-				print("WARNING: there are few unique values (#{0:d}) for predictions for simulation input parameter #{1:d} (`{2:s}`):".format(
+				print("WARNING: there are few unique values (#{0:,d}) for predictions for simulation input parameter #{1:d} (`{2:s}`):".format(
 					len(unique), idx + 1, name
 				))
 				num_warnings += 1
 				for val in sorted(list(unique)):
 					count = len([x for x in col if math.isclose(x, val)])
 					if count > 1:
-						print("  {0:s} (x{1:d})".format(str(val), count))
+						print("  {0:s} (x{1:,d})".format(str(val), count))
 					else:
 						print("  {0:s}".format(str(val)))
 		if num_warnings >= 1:

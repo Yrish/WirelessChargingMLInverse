@@ -9,6 +9,7 @@ See `README.md` for more information.
 
 from enum import Enum
 
+import torch
 import torch.nn as nn
 
 from wcmi.nn import modules
@@ -23,7 +24,12 @@ class GAN(modules.WCMIModule):
 	The architecture for the GAN model.
 	"""
 
+	# The default gan_n value.
 	DEFAULT_GAN_N = default_gan_n
+
+	# Label values for the discriminator.
+	GENERATED_LABEL_ITEM = 0
+	REAL_LABEL_ITEM = 1
 
 	class GANSubnetworkSelection(Enum):
 		"""

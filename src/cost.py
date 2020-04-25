@@ -82,40 +82,28 @@ if __name__ == '__main__':
     for epoch in range(num_epochs):
         cost = 0
         for i, (input, labels) in enumerate(train_loader):
-            # Move tensors to the configured device
             input = input.to(device)
             labels = labels.to(device)
 
-            # Forward pass
-
-            '''Exercise - Get Network outputs with forward propagation with current network weights'''
             outputs = model(input)
-            '''Exercise - Get Loss by comparing outputs with True Labels after forward propagation'''
             outputs = outputs + torch.mul(labels - outputs, bias)
             loss = criterion(outputs, labels)
 
             cost += loss.item()
 
-            # Backward and optimize
-
-            '''Exercise - ... below needs to be replaced with functions'''
-
-            optimizer.zero_grad() #'''Exercise - clear the gradients after each pass - Strongly recommended'''
-            loss.backward() #'''Backpropagate the Loss to calculate gradient for each weight'''
-            optimizer.step() #'''Update the weight using the learning rate'''
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
         print("epoch: {} cost: {}".format(epoch, cost))
         costs.append(cost)
 
-        with torch.no_grad(): # In test phase, we don't need to compute gradients (for memory efficiency)
+        with torch.no_grad():
                 totalError = 0
                 for input, labels in test_loader:
-                    '''Exercise - Move input to device after appropriate reshaping'''
                     input = input.to(device)
 
-                    '''Exercise - Move labels to device'''
                     labels = labels.to(device)
 
-                    #get network outputs
                     outputs = model(input)
                     error = abs(labels - outputs.data)
                     totalError += error.sum().item()

@@ -18,6 +18,9 @@ import wcmi.nn.data as data
 # the generator beyond the 5 desired simulation output values.
 default_gan_n = data.default_gan_n
 
+pytorch_supports_bilinear_in_sequential = False
+force_custom_gan_subnetwork_classes = False
+
 class GAN(modules.WCMIModule):
 	"""
 	The architecture for the GAN model.
@@ -116,23 +119,27 @@ class GAN(modules.WCMIModule):
 
 		# Set the neural network architecture.
 
-		self.generator = nn.Sequential(
-			nn.Bilinear(self.gan_n, self.simulation_info.num_sim_outputs, 90),
-			nn.LeakyReLU(0.1),
-			nn.Dropout(p=0.02),
-			nn.Linear(90, self.simulation_info.num_sim_inputs),
-			nn.Tanh() if data.is_standardized_negative() else nn.LeakyReLU(0.1),
-			#nn.BatchNorm1d(self.simulation_info.num_sim_inputs),
-		)
+		if force_custom_gan_subnetwork_classes or not pytorch_supports_bilinear_in_sequential:
+			self.generator = Generator(self.gan_n, self.simulation_info.num_sim_inputs, self.simulation_info.num_sim_outputs)
+			self.discriminator = Discriminator(self.simulation_info.num_sim_inputs, self.simulation_info.num_sim_outputs)
+		else:
+			self.generator = nn.Sequential(
+				nn.Bilinear(self.gan_n, self.simulation_info.num_sim_outputs, 90),
+				nn.LeakyReLU(0.1),
+				nn.Dropout(p=0.02),
+				nn.Linear(90, self.simulation_info.num_sim_inputs),
+				nn.Tanh() if data.is_standardized_negative() else nn.LeakyReLU(0.1),
+				#nn.BatchNorm1d(self.simulation_info.num_sim_inputs),
+			)
 
-		self.discriminator = nn.Sequential(
-			nn.Bilinear(self.simulation_info.num_sim_outputs, self.simulation_info.num_sim_inputs, 90),
-			nn.LeakyReLU(0.1),
-			nn.Dropout(p=0.02),
-			nn.Linear(90, 1),
-			nn.Sigmoid(),
-			#nn.BatchNorm1d(self.simulation_info.num_sim_inputs),
-		)
+			self.discriminator = nn.Sequential(
+				nn.Bilinear(self.simulation_info.num_sim_outputs, self.simulation_info.num_sim_inputs, 90),
+				nn.LeakyReLU(0.1),
+				nn.Dropout(p=0.02),
+				nn.Linear(90, 1),
+				nn.Sigmoid(),
+				#nn.BatchNorm1d(1),
+			)
 
 	def get_subnetwork_selection(self, subnetwork_selection=GANSubnetworkSelection.DEFAULT):
 		"""
@@ -257,7 +264,7 @@ class GAN(modules.WCMIModule):
 		Generator only: 5 simulation output values and gan_n input values are fed to the network, and 7
 		(num_sim_inputs) output values are returned.  This is the default.
 
-		Discriminator only: 5 (num_sim_outputs) + 7 (num_sim_inputs) = 12
+		Discriminator only: 7 (num_sim_inputs) + 5 (num_sim_outputs) = 12
 		inputs are input as a combination of simulation inputs and simulation
 		outputs.  Output a single value (1 means real, 0 means generated).
 
@@ -286,3 +293,41 @@ class GAN(modules.WCMIModule):
 
 # GENERATOR_ONLY.
 default_default_subnetwork_selection = GAN.DEFAULT_DEFAULT_SUBNETWORK_SELECTION
+
+class Generator(nn.Module):
+	"""The generator subnetwork of a GAN."""
+	def __init__(self, gan_n, num_sim_inputs, num_sim_outputs, *args, **kwargs):
+		super().__init__(*args, **kwargs)
+
+		self.bilinear = nn.Bilinear(gan_n, num_sim_outputs, 90)
+		self.layer1 = nn.Sequential(
+			nn.LeakyReLU(0.1),
+			nn.Dropout(p=0.02),
+			nn.Linear(90, num_sim_inputs),
+			nn.Tanh() if data.is_standardized_negative() else nn.LeakyReLU(0.1),
+			#nn.BatchNorm1d(num_sim_inputs),
+		)
+
+	def forward(self, gan_gen, desired_sim_out):
+		x = self.bilinear(gan_gen, desired_sim_out)
+		x = self.layer1(x)
+		return x
+
+class Discriminator(nn.Module):
+	"""The discriminator subnetwork of a GAN."""
+	def __init__(self, num_sim_inputs, num_sim_outputs, *args, **kwargs):
+		super().__init__(*args, **kwargs)
+
+		self.bilinear = nn.Bilinear(num_sim_outputs, num_sim_inputs, 90)
+		self.layer1 = nn.Sequential(
+			nn.LeakyReLU(0.1),
+			nn.Dropout(p=0.02),
+			nn.Linear(90, 1),
+			nn.Sigmoid(),
+			#nn.BatchNorm1d(1),
+		)
+
+	def forward(self, sim_out, sim_in):
+		x = self.bilinear(sim_out, sim_in)
+		x = self.layer1(x)
+		return x

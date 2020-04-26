@@ -642,6 +642,7 @@ def default(options, parser=argument_parser, default_actions=default_actions, lo
 		logger.info("  {0:s}".format(format_action(action, action_options)))
 	logger.info("")
 
+	raise NotImplementedError("FIXME: the `default' action currently doesn't write log files; disabling the `default' action until this bug is fixed.")
 	run_actions(default_actions, logger=logger)
 
 	logger.info("")

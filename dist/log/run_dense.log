@@ -2,37 +2,59 @@ Logging enabled.
 ./wcmi.py run --dense --load-model=dist/dense.pt --load-data=data/4th_dataset_noid.csv --save-data=dist/4th_dataset_dense_predictions.csv --log=dist/log/run_dense.log --log-truncate
 All model predictions are within the minimum and maximum boundaries.
 
-WARNING: there are few unique values (#3) for predictions for simulation input parameter #1 (`Iin[A]`):
-  10.861142 x3,348
-  35.805527 x2,978
-  34.902225
+WARNING: there is little variance in the predictions for simulation input parameter #1 (`Iin[A]`): std <= this_threshold: 5.919433 <= 9.900000.
+WARNING: there are few unique values (#2) for predictions for simulation input parameter #1 (`Iin[A]`):
+  35.805527 x5,948
+  10.861142 x379
 
-WARNING: there is little variance in the predictions for simulation input parameter #2 (`Iout[A]`): std <= this_threshold: 0.626999 <= 9.900000.
-WARNING: there are few unique values (#2) for predictions for simulation input parameter #2 (`Iout[A]`):
-  10.861142 x6,323
-  35.805527 x4
+WARNING: there is little variance in the predictions for simulation input parameter #2 (`Iout[A]`): std <= this_threshold: 6.495419 <= 9.900000.
+WARNING: there are few unique values (#10) for predictions for simulation input parameter #2 (`Iout[A]`):
+  35.805527 x5,859
+  10.861142 x460
+  35.805515
+  35.80537 
+  35.801453
+  34.98466 
+  31.149126
+  12.26471 
+  11.021427
+  10.861151
 
-WARNING: there is little variance in the predictions for simulation input parameter #3 (`l[mm]`): std <= this_threshold: 15.086020 <= 149.700000.
-WARNING: there are few unique values (#2) for predictions for simulation input parameter #3 (`l[mm]`):
-  1063.6742 x6,323
-  463.49515 x4
+WARNING: there are few unique values (#3) for predictions for simulation input parameter #3 (`l[mm]`):
+  463.49515 x5,747
+  1063.6742 x579
+  473.3537 
 
 WARNING: there are few unique values (#2) for predictions for simulation input parameter #4 (`p1[mm]`):
-  17.34751  x3,348
-  74.60128  x2,979
+  17.34751  x3,546
+  74.60128  x2,781
 
-WARNING: there is little variance in the predictions for simulation input parameter #5 (`p2[mm]`): std <= this_threshold: 1.267291 <= 14.700000.
 WARNING: there are few unique values (#2) for predictions for simulation input parameter #5 (`p2[mm]`):
-  76.10492  x6,324
-  17.892233 x3
+  76.10492  x3,301
+  17.892233 x3,026
 
 WARNING: there are few unique values (#2) for predictions for simulation input parameter #6 (`p3[mm]`):
-  76.10492  x3,347
-  17.892233 x2,980
+  76.10492  x3,300
+  17.892233 x3,027
 
-WARNING: there is little variance in the predictions for simulation input parameter #7 (`win[mm]`): std <= this_threshold: 37.396557 <= 99.900000.
-WARNING: there are few unique values (#2) for predictions for simulation input parameter #7 (`win[mm]`):
-  125.0428  x6,275
-  539.2531  x52
+WARNING: there is little variance in the predictions for simulation input parameter #7 (`win[mm]`): std <= this_threshold: 70.331650 <= 99.900000.
+WARNING: there are few unique values (#3) for predictions for simulation input parameter #7 (`win[mm]`):
+  125.0428  x6,138
+  539.2531  x188
+  125.048904
 
+
+Columns: <Iin[A], Iout[A], l[mm], p1[mm], p2[mm], p3[mm], win[mm]>
+
+Prediction MSEs for each column: <311.479126, 277.500366, 206860.812500, 1679.804932, 1652.813599, 1626.370972, 82622.210938>
+Label variance for each column: <155.555573, 155.555557, 90053.718750, 819.498596, 847.179260, 847.179260, 42892.542969>
+
+Prediction RMSEs for each column: <17.648771, 16.658342, 454.819550, 40.985424, 40.654812, 40.328289, 287.440796>
+Label stddev for each column: <12.472192, 12.472192, 300.089508, 28.626886, 29.106344, 29.106344, 207.105148>
+
+Mean of column MSEs: 42147.285156
+Mean of label variances: 19395.890625
+
+Mean of column RMSEs: 128.362274
+Mean of label stddevs: 88.425522
 Wrote CSV output with predictions to `dist/4th_dataset_dense_predictions.csv'.

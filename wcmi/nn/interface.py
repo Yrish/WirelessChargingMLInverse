@@ -944,6 +944,7 @@ def run(
 	gan_fixed_gen = all_gan_n.shape[1] != 0
 
 	## Pass the numpy array through the model.
+	gan_gen_params = None
 	if not use_gan:
 		with torch.no_grad():
 			all_output = model(all_input)
@@ -973,7 +974,7 @@ def run(
 		(
 			npdata_extra[:, :num_sim_in_out_columns],
 			npoutput,
-			npdata_extra[:, num_sim_in_out_columns:] if gan_fixed_gen else gan_gen_params.numpy(),
+			npdata_extra[:, num_sim_in_out_columns:] if gan_fixed_gen or gan_gen_params is None else gan_gen_params.numpy(),
 		),
 		axis=1,
 	)

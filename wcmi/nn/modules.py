@@ -33,6 +33,7 @@ class WCMIModule(nn.Module):
 		population_min_in=None, population_max_in=None,
 		population_mean_out=None, population_std_out=None,
 		population_min_out=None, population_max_out=None,
+		standardize_bounds_multiple=False,
 		*args, **kwargs
 	):
 		"""
@@ -67,6 +68,10 @@ class WCMIModule(nn.Module):
 		self.population_std_out = population_std_out
 		self.population_min_out = population_min_out
 		self.population_max_out = population_max_out
+		# standardize_bounds_multiple: Are there multiple sets of
+		# standardization parameters to be applied element-wise to the inputs,
+		# rather than one set to apply to all inputs?
+		self.standardize_bounds_multiple = standardize_bounds_multiple
 
 		# Set other persistent properties.
 		if not hasattr(self, "checkpoint_extra"):
@@ -128,6 +133,7 @@ class WCMIModule(nn.Module):
 			"population_std_out": self.population_std_out,
 			"population_min_out": self.population_min_out,
 			"population_max_out": self.population_max_out,
+			"standardize_bounds_multiple": self.standardize_bounds_multiple,
 			"checkpoint_extra": self.checkpoint_extra,
 		}
 		return torch.save(checkpoint, save_model_path)
@@ -166,6 +172,7 @@ class WCMIModule(nn.Module):
 		self.population_std_out = checkpoint["population_std_out"]
 		self.population_min_out = checkpoint["population_min_out"]
 		self.population_max_out = checkpoint["population_max_out"]
+		self.standardize_bounds_multiple = checkpoint["standardize_bounds_multiple"]
 		self.initialized = True
 
 		# Verify the version.
@@ -206,7 +213,38 @@ class WCMIModule(nn.Module):
 				if True:
 					torch.rand(p.data.shape, out=p.data)
 
-	def with_standardized(self, *input, forward=None, standardize_input_only=False, standardize_input_mask=None, in_place=False, **kwargs):
+	@staticmethod
+	def standardize_val(
+		v, skip_all_standardize=False, is_standardize=False,
+		is_normalize=False, is_normalize_negative=True,
+		mean_in=None, std_in=None, min_in=None, max_in=None,
+		mean_out=None, std_out=None, min_out=None, max_out=None,
+		destandardize=False,
+	):
+		"""Standardize a single input according to the parameters."""
+		if is_standardize:
+			if not destandardize:
+				return (v - mean_in)/std_in
+			else:
+				return std_out * v + mean_out
+		elif is_normalize:
+			if not is_normalize_negative:
+				if not destandardize:
+					return (v - min_in)/(max_in - min_in)
+				else:
+					return (max_out - min_out) * v + min_out
+			else:
+				if not destandardize:
+					return 2*(v - min_in)/(max_in - min_in) - 1
+				else:
+					return (max_out - min_out) * ((v+1)/2) + min_out
+
+	@staticmethod
+	def destandardize_val(*args, **kwargs):
+		"""Destandardize a single output."""
+		return WCMIModule.standardize_val(*args, **{**dict(destandardize=True), **kwargs})
+
+	def with_standardized(self, *input, forward=None, standardize_input_only=False, standardize_input_mask=None, in_place=False, standardize_bounds_multiple=None, **kwargs):
 		"""
 		If standardization or normalization is enabled, apply it; else, leave
 		the input untouched.
@@ -214,85 +252,68 @@ class WCMIModule(nn.Module):
 		# Argument defaults.
 		if forward is None:
 			forward = self.forward_with_standardized
+		if standardize_bounds_multiple is None:
+			standardize_bounds_multiple = self.standardize_bounds_multiple
 
 		if in_place:
 			input_standardized = input
 		else:
 			input_standardized = (*(x.clone() for x in input),)
 
-		# Whether to standardize this input (assume we're standardizing any
-		# inputs).
-		if standardize_input_mask is None:
-			def f(i, x, xs):
-				"""
-				Whether to standardize this input (assume we're standardizing any
-				inputs).
-				"""
-				return xs()
-		else:
-			def f(i, x, xs):
-				"""
-				Whether to standardize this input (assume we're standardizing any
-				inputs).
-				"""
-				if standardize_input_mask[i]:
-					return xs()
-				else:
-					return x
+		if not standardize_bounds_multiple:
+			xs = [
+				self.standardize_val(
+					x,
+					skip_all_standardize=standardize_input_mask is not None and not standardize_input_mask[i],
+					is_standardize=self.standardize,
+					is_normalize=self.normalize_population or self.normalize_bounds,
 
-		# Determine whether to standardize, normalize, or neither.
-		if self.standardize:
-			xs = [f(i, x, lambda: (x - self.population_mean_in)/self.population_std_in) for i, x in enumerate(input)]
-			xs = forward(*xs, **kwargs)
-			if standardize_input_only:
-				return xs
-			x = self.population_std_out * xs + self.population_mean_out
-			return x
-		elif self.normalize_population:
-			data_min_in    = self.population_min_in
-			data_max_in    = self.population_max_in
-			data_range_in  = data_max_in - data_min_in
-			data_min_out   = self.population_min_out
-			data_max_out   = self.population_max_out
-			data_range_out = data_max_out - data_min_out
-			if not self.normalize_negative:
-				xs = [f(i, x, lambda: (x - data_min_in)/data_range_in) for i, x in enumerate(input)]
-				xs = forward(*xs, **kwargs)
-				if standardize_input_only:
-					return xs
-				x = data_range_out * xs + data_min_out
-				return x
-			else:
-				xs = [f(i, x, lambda: 2*(x - data_min_in)/data_range_in - 1) for i, x in enumerate(input)]
-				xs = forward(*xs, **kwargs)
-				if standardize_input_only:
-					return xs
-				x = data_range_out * ((xs+1)/2) + data_min_out
-				return x
-		elif self.normalize_bounds:
-			data_min_in    = self.bounds_min_in
-			data_max_in    = self.bounds_max_in
-			data_range_in  = data_max_in - data_min_in
-			data_min_out   = self.bounds_min_out
-			data_max_out   = self.bounds_max_out
-			data_range_out = data_max_out - data_min_out
-			if not self.normalize_negative:
-				xs = [f(i, x, lambda: (x - data_min_in)/data_range_in) for i, x in enumerate(input)]
-				xs = forward(*xs, **kwargs)
-				if standardize_input_only:
-					return xs
-				x = data_range_out * xs + data_min_out
-				return x
-			else:
-				xs = [f(i, x, lambda: 2*(x - data_min_in)/data_range_in - 1) for i, x in enumerate(input)]
-				xs = forward(*xs, **kwargs)
-				if standardize_input_only:
-					return xs
-				x = data_range_out * ((xs+1)/2) + data_min_out
-				return x
+					mean_in=self.population_mean_in, std_in=self.population_std_in,
+					mean_out=self.population_mean_out, std_out=self.population_std_out,
+
+					min_in=self.population_min_in if self.normalize_population else self.bounds_min_in,
+					max_in=self.population_max_in if self.normalize_population else self.bounds_max_in,
+					min_out=self.population_min_out if self.normalize_population else self.bounds_min_out,
+					max_out=self.population_max_out if self.normalize_population else self.bounds_max_out,
+				)
+				for i, x in enumerate(input)
+			]
 		else:
-			x = self.net(*input)
-			return x
+			xs = [
+				self.standardize_val(
+					x,
+					skip_all_standardize=standardize_input_mask is not None and not standardize_input_mask[i],
+					is_standardize=self.standardize,
+					is_normalize=self.normalize_population or self.normalize_bounds,
+
+					mean_in=self.population_mean_in[i], std_in=self.population_std_in[i],
+					mean_out=self.population_mean_out[i], std_out=self.population_std_out[i],
+
+					min_in=self.population_min_in[i] if self.normalize_population else self.bounds_min_in[i],
+					max_in=self.population_max_in[i] if self.normalize_population else self.bounds_max_in[i],
+					min_out=self.population_min_out[i] if self.normalize_population else self.bounds_min_out[i],
+					max_out=self.population_max_out[i] if self.normalize_population else self.bounds_max_out[i],
+				)
+				for i, x in enumerate(input)
+			]
+		xs = forward(*xs, **kwargs)
+		if standardize_input_only:
+			return xs
+		else:
+			return self.destandardize_val(
+				xs,
+				skip_all_standardize=standardize_input_mask is not None and not standardize_input_mask[i],
+				is_standardize=self.standardize,
+				is_normalize=self.normalize_population or self.normalize_bounds,
+
+				mean_in=self.population_mean_in, std_in=self.population_std_in,
+				mean_out=self.population_mean_out, std_out=self.population_std_out,
+
+				min_in=self.population_min_in if self.normalize_population else self.bounds_min_in,
+				max_in=self.population_max_in if self.normalize_population else self.bounds_max_in,
+				min_out=self.population_min_out if self.normalize_population else self.bounds_min_out,
+				max_out=self.population_max_out if self.normalize_population else self.bounds_max_out,
+			)
 
 	def forward(self, *input, **kwargs):
 		"""

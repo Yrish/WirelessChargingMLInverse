@@ -1,183 +1,183 @@
 Logging enabled.
-./wcmi.py train --dense --load-data=data/4th_dataset_noid.csv --save-model=dist/dense.pt --save-data=dist/4th_dataset_dense_mse.csv --batch-size=64 --num-epochs=100 --log=dist/log/train_dense_00_initial.log --log-truncate
+./wcmi.py train --dense --load-data=data/4th_dataset_noid.csv --save-model=dist/dense.pt --save-data=dist/dense_mse.csv --log=dist/log/train_dense_00_initial.log --log-truncate
 device: cpu
 
 Beginning epoch #1/100.
   Beginning sample #1/6,327 (epoch #1/100).
-    MSE loss, mean of columns: 32,881.628906
+    MSE loss, mean of columns: 17,732.810547
   Beginning sample #1,025/6,327 (epoch #1/100).
-    MSE loss, mean of columns: 53,359.320312
+    MSE loss, mean of columns: 18,815.097656
   Beginning sample #2,049/6,327 (epoch #1/100).
-    MSE loss, mean of columns: 61,737.601562
+    MSE loss, mean of columns: 21,728.279297
   Beginning sample #3,009/6,327 (epoch #1/100).
-    MSE loss, mean of columns: 56,441.867188
+    MSE loss, mean of columns: 20,657.597656
   Beginning sample #4,033/6,327 (epoch #1/100).
-    MSE loss, mean of columns: 64,892.441406
+    MSE loss, mean of columns: 22,300.013672
   Beginning sample #5,057/6,327 (testing phase) (epoch #1/100).
-    MSE loss, mean of columns: 57,769.429688
+    MSE loss, mean of columns: 19,825.484375
   Beginning sample #6,017/6,327 (testing phase) (epoch #1/100).
-    MSE loss, mean of columns: 59,160.335938
-Done training epoch #1/100 (testing MSE norm (mean) vs. training MSE norm (mean): 300,777.406250 (58,655.667969) vs. 295,532.437500 (57,727.179688) (lower is more accurate)).
+    MSE loss, mean of columns: 20,243.964844
+Done training epoch #1/100 (testing MSE norm (mean) vs. training MSE norm (mean): 97,050.921875 (19,575.347656) vs. 97,464.078125 (19,823.839844) (lower is more accurate)).
 
 Beginning epoch #11/100.
   Beginning sample #1/6,327 (epoch #11/100).
-    MSE loss, mean of columns: 34,321.660156
+    MSE loss, mean of columns: 38,098.339844
   Beginning sample #1,025/6,327 (epoch #11/100).
-    MSE loss, mean of columns: 27,237.011719
+    MSE loss, mean of columns: 40,637.664062
   Beginning sample #2,049/6,327 (epoch #11/100).
-    MSE loss, mean of columns: 29,180.443359
+    MSE loss, mean of columns: 41,287.613281
   Beginning sample #3,009/6,327 (epoch #11/100).
-    MSE loss, mean of columns: 34,842.347656
+    MSE loss, mean of columns: 44,941.125000
   Beginning sample #4,033/6,327 (epoch #11/100).
-    MSE loss, mean of columns: 35,130.875000
+    MSE loss, mean of columns: 35,644.484375
   Beginning sample #5,057/6,327 (testing phase) (epoch #11/100).
-    MSE loss, mean of columns: 30,643.751953
+    MSE loss, mean of columns: 33,279.738281
   Beginning sample #6,017/6,327 (testing phase) (epoch #11/100).
-    MSE loss, mean of columns: 36,196.929688
-Done training epoch #11/100 (testing MSE norm (mean) vs. training MSE norm (mean): 191,964.625000 (36,772.925781) vs. 178,982.484375 (33,182.308594) (lower is more accurate)).
+    MSE loss, mean of columns: 37,856.054688
+Done training epoch #11/100 (testing MSE norm (mean) vs. training MSE norm (mean): 199,988.359375 (38,928.460938) vs. 212,704.390625 (40,021.507812) (lower is more accurate)).
 
 Beginning epoch #21/100.
   Beginning sample #1/6,327 (epoch #21/100).
-    MSE loss, mean of columns: 39,788.570312
+    MSE loss, mean of columns: 43,120.394531
   Beginning sample #1,025/6,327 (epoch #21/100).
-    MSE loss, mean of columns: 33,776.769531
+    MSE loss, mean of columns: 35,587.277344
   Beginning sample #2,049/6,327 (epoch #21/100).
-    MSE loss, mean of columns: 36,216.488281
+    MSE loss, mean of columns: 41,519.000000
   Beginning sample #3,009/6,327 (epoch #21/100).
-    MSE loss, mean of columns: 35,176.453125
+    MSE loss, mean of columns: 25,767.527344
   Beginning sample #4,033/6,327 (epoch #21/100).
-    MSE loss, mean of columns: 36,975.960938
+    MSE loss, mean of columns: 46,400.132812
   Beginning sample #5,057/6,327 (testing phase) (epoch #21/100).
-    MSE loss, mean of columns: 43,368.738281
+    MSE loss, mean of columns: 45,271.625000
   Beginning sample #6,017/6,327 (testing phase) (epoch #21/100).
-    MSE loss, mean of columns: 37,548.429688
-Done training epoch #21/100 (testing MSE norm (mean) vs. training MSE norm (mean): 224,401.156250 (42,752.652344) vs. 177,547.203125 (35,220.820312) (lower is more accurate)).
+    MSE loss, mean of columns: 40,195.960938
+Done training epoch #21/100 (testing MSE norm (mean) vs. training MSE norm (mean): 197,476.015625 (38,388.269531) vs. 200,193.578125 (38,939.238281) (lower is more accurate)).
 
 Beginning epoch #31/100.
   Beginning sample #1/6,327 (epoch #31/100).
-    MSE loss, mean of columns: 34,154.929688
+    MSE loss, mean of columns: 24,020.892578
   Beginning sample #1,025/6,327 (epoch #31/100).
-    MSE loss, mean of columns: 23,355.939453
+    MSE loss, mean of columns: 20,470.248047
   Beginning sample #2,049/6,327 (epoch #31/100).
-    MSE loss, mean of columns: 50,997.691406
+    MSE loss, mean of columns: 25,196.324219
   Beginning sample #3,009/6,327 (epoch #31/100).
-    MSE loss, mean of columns: 45,158.769531
+    MSE loss, mean of columns: 20,838.931641
   Beginning sample #4,033/6,327 (epoch #31/100).
-    MSE loss, mean of columns: 60,106.589844
+    MSE loss, mean of columns: 23,048.558594
   Beginning sample #5,057/6,327 (testing phase) (epoch #31/100).
-    MSE loss, mean of columns: 59,114.156250
+    MSE loss, mean of columns: 22,952.324219
   Beginning sample #6,017/6,327 (testing phase) (epoch #31/100).
-    MSE loss, mean of columns: 55,963.945312
-Done training epoch #31/100 (testing MSE norm (mean) vs. training MSE norm (mean): 288,102.531250 (56,678.937500) vs. 224,462.109375 (44,677.707031) (lower is more accurate)).
+    MSE loss, mean of columns: 20,636.910156
+Done training epoch #31/100 (testing MSE norm (mean) vs. training MSE norm (mean): 111,003.210938 (22,241.138672) vs. 106,350.765625 (21,544.361328) (lower is more accurate)).
 
 Beginning epoch #41/100.
   Beginning sample #1/6,327 (epoch #41/100).
-    MSE loss, mean of columns: 46,140.132812
+    MSE loss, mean of columns: 41,785.929688
   Beginning sample #1,025/6,327 (epoch #41/100).
-    MSE loss, mean of columns: 39,383.925781
+    MSE loss, mean of columns: 42,927.511719
   Beginning sample #2,049/6,327 (epoch #41/100).
-    MSE loss, mean of columns: 41,224.398438
+    MSE loss, mean of columns: 44,653.753906
   Beginning sample #3,009/6,327 (epoch #41/100).
-    MSE loss, mean of columns: 39,272.644531
+    MSE loss, mean of columns: 36,948.246094
   Beginning sample #4,033/6,327 (epoch #41/100).
-    MSE loss, mean of columns: 41,753.992188
+    MSE loss, mean of columns: 49,094.562500
   Beginning sample #5,057/6,327 (testing phase) (epoch #41/100).
-    MSE loss, mean of columns: 43,111.320312
+    MSE loss, mean of columns: 42,249.019531
   Beginning sample #6,017/6,327 (testing phase) (epoch #41/100).
-    MSE loss, mean of columns: 44,581.429688
-Done training epoch #41/100 (testing MSE norm (mean) vs. training MSE norm (mean): 191,310.500000 (39,118.027344) vs. 192,343.140625 (39,305.718750) (lower is more accurate)).
+    MSE loss, mean of columns: 44,092.781250
+Done training epoch #41/100 (testing MSE norm (mean) vs. training MSE norm (mean): 219,098.078125 (41,775.585938) vs. 222,717.203125 (42,482.425781) (lower is more accurate)).
 
 Beginning epoch #51/100.
   Beginning sample #1/6,327 (epoch #51/100).
-    MSE loss, mean of columns: 30,044.447266
+    MSE loss, mean of columns: 33,439.707031
   Beginning sample #1,025/6,327 (epoch #51/100).
-    MSE loss, mean of columns: 28,063.453125
+    MSE loss, mean of columns: 27,815.380859
   Beginning sample #2,049/6,327 (epoch #51/100).
-    MSE loss, mean of columns: 36,337.917969
+    MSE loss, mean of columns: 32,106.865234
   Beginning sample #3,009/6,327 (epoch #51/100).
-    MSE loss, mean of columns: 42,423.644531
+    MSE loss, mean of columns: 28,328.011719
   Beginning sample #4,033/6,327 (epoch #51/100).
-    MSE loss, mean of columns: 41,345.316406
+    MSE loss, mean of columns: 33,532.621094
   Beginning sample #5,057/6,327 (testing phase) (epoch #51/100).
-    MSE loss, mean of columns: 38,640.566406
+    MSE loss, mean of columns: 33,898.117188
   Beginning sample #6,017/6,327 (testing phase) (epoch #51/100).
-    MSE loss, mean of columns: 41,334.324219
-Done training epoch #51/100 (testing MSE norm (mean) vs. training MSE norm (mean): 208,958.031250 (41,656.496094) vs. 187,609.640625 (36,675.417969) (lower is more accurate)).
+    MSE loss, mean of columns: 32,951.992188
+Done training epoch #51/100 (testing MSE norm (mean) vs. training MSE norm (mean): 172,930.328125 (30,417.548828) vs. 171,062.187500 (30,024.291016) (lower is more accurate)).
 
 Beginning epoch #61/100.
   Beginning sample #1/6,327 (epoch #61/100).
-    MSE loss, mean of columns: 50,393.496094
+    MSE loss, mean of columns: 32,914.941406
   Beginning sample #1,025/6,327 (epoch #61/100).
-    MSE loss, mean of columns: 49,142.335938
+    MSE loss, mean of columns: 32,789.832031
   Beginning sample #2,049/6,327 (epoch #61/100).
-    MSE loss, mean of columns: 42,453.457031
+    MSE loss, mean of columns: 29,443.060547
   Beginning sample #3,009/6,327 (epoch #61/100).
-    MSE loss, mean of columns: 33,522.230469
+    MSE loss, mean of columns: 44,487.589844
   Beginning sample #4,033/6,327 (epoch #61/100).
-    MSE loss, mean of columns: 44,265.355469
+    MSE loss, mean of columns: 35,648.933594
   Beginning sample #5,057/6,327 (testing phase) (epoch #61/100).
-    MSE loss, mean of columns: 34,030.773438
+    MSE loss, mean of columns: 33,599.019531
   Beginning sample #6,017/6,327 (testing phase) (epoch #61/100).
-    MSE loss, mean of columns: 35,708.960938
-Done training epoch #61/100 (testing MSE norm (mean) vs. training MSE norm (mean): 235,299.046875 (38,321.570312) vs. 269,496.312500 (44,564.738281) (lower is more accurate)).
+    MSE loss, mean of columns: 37,321.531250
+Done training epoch #61/100 (testing MSE norm (mean) vs. training MSE norm (mean): 198,981.859375 (38,741.968750) vs. 190,813.984375 (35,594.902344) (lower is more accurate)).
 
 Beginning epoch #71/100.
   Beginning sample #1/6,327 (epoch #71/100).
-    MSE loss, mean of columns: 38,494.207031
+    MSE loss, mean of columns: 55,370.363281
   Beginning sample #1,025/6,327 (epoch #71/100).
-    MSE loss, mean of columns: 38,979.378906
+    MSE loss, mean of columns: 46,855.710938
   Beginning sample #2,049/6,327 (epoch #71/100).
-    MSE loss, mean of columns: 36,672.402344
+    MSE loss, mean of columns: 45,687.585938
   Beginning sample #3,009/6,327 (epoch #71/100).
-    MSE loss, mean of columns: 38,119.125000
+    MSE loss, mean of columns: 35,783.203125
   Beginning sample #4,033/6,327 (epoch #71/100).
-    MSE loss, mean of columns: 34,323.964844
+    MSE loss, mean of columns: 40,614.750000
   Beginning sample #5,057/6,327 (testing phase) (epoch #71/100).
-    MSE loss, mean of columns: 36,646.792969
+    MSE loss, mean of columns: 34,148.570312
   Beginning sample #6,017/6,327 (testing phase) (epoch #71/100).
-    MSE loss, mean of columns: 32,162.957031
-Done training epoch #71/100 (testing MSE norm (mean) vs. training MSE norm (mean): 192,234.718750 (31,247.080078) vs. 195,695.250000 (36,587.253906) (lower is more accurate)).
+    MSE loss, mean of columns: 37,899.539062
+Done training epoch #71/100 (testing MSE norm (mean) vs. training MSE norm (mean): 197,064.968750 (37,724.257812) vs. 243,292.390625 (44,223.011719) (lower is more accurate)).
 
 Beginning epoch #81/100.
   Beginning sample #1/6,327 (epoch #81/100).
-    MSE loss, mean of columns: 48,924.226562
+    MSE loss, mean of columns: 35,321.257812
   Beginning sample #1,025/6,327 (epoch #81/100).
-    MSE loss, mean of columns: 41,321.238281
+    MSE loss, mean of columns: 39,239.535156
   Beginning sample #2,049/6,327 (epoch #81/100).
-    MSE loss, mean of columns: 44,083.320312
+    MSE loss, mean of columns: 34,756.410156
   Beginning sample #3,009/6,327 (epoch #81/100).
-    MSE loss, mean of columns: 37,782.417969
+    MSE loss, mean of columns: 28,207.015625
   Beginning sample #4,033/6,327 (epoch #81/100).
-    MSE loss, mean of columns: 48,037.437500
+    MSE loss, mean of columns: 40,674.132812
   Beginning sample #5,057/6,327 (testing phase) (epoch #81/100).
-    MSE loss, mean of columns: 45,159.035156
+    MSE loss, mean of columns: 36,444.464844
   Beginning sample #6,017/6,327 (testing phase) (epoch #81/100).
-    MSE loss, mean of columns: 42,725.812500
-Done training epoch #81/100 (testing MSE norm (mean) vs. training MSE norm (mean): 212,102.937500 (43,205.976562) vs. 212,077.781250 (43,295.730469) (lower is more accurate)).
+    MSE loss, mean of columns: 36,183.089844
+Done training epoch #81/100 (testing MSE norm (mean) vs. training MSE norm (mean): 186,015.687500 (36,544.562500) vs. 188,993.718750 (37,122.097656) (lower is more accurate)).
 
 Beginning epoch #91/100.
   Beginning sample #1/6,327 (epoch #91/100).
-    MSE loss, mean of columns: 45,976.773438
+    MSE loss, mean of columns: 31,568.527344
   Beginning sample #1,025/6,327 (epoch #91/100).
-    MSE loss, mean of columns: 38,567.113281
+    MSE loss, mean of columns: 31,238.482422
   Beginning sample #2,049/6,327 (epoch #91/100).
-    MSE loss, mean of columns: 40,423.894531
+    MSE loss, mean of columns: 30,172.468750
   Beginning sample #3,009/6,327 (epoch #91/100).
-    MSE loss, mean of columns: 27,094.687500
+    MSE loss, mean of columns: 21,461.341797
   Beginning sample #4,033/6,327 (epoch #91/100).
-    MSE loss, mean of columns: 25,440.824219
+    MSE loss, mean of columns: 33,431.542969
   Beginning sample #5,057/6,327 (testing phase) (epoch #91/100).
-    MSE loss, mean of columns: 33,001.542969
+    MSE loss, mean of columns: 36,554.769531
   Beginning sample #6,017/6,327 (testing phase) (epoch #91/100).
-    MSE loss, mean of columns: 25,440.187500
-Done training epoch #91/100 (testing MSE norm (mean) vs. training MSE norm (mean): 131,209.843750 (26,098.191406) vs. 167,573.968750 (34,564.449219) (lower is more accurate)).
+    MSE loss, mean of columns: 31,563.486328
+Done training epoch #91/100 (testing MSE norm (mean) vs. training MSE norm (mean): 144,862.203125 (29,684.816406) vs. 146,571.968750 (30,040.082031) (lower is more accurate)).
 
 Done training last epoch.  Preparing statistics...
 
-Last testing MSE   (norm) (mean) : <    319.840179,     318.881165, 179,943.359375,   1,618.374634,   1,731.529541,   1,792.093994,  87,832.585938> (200,257.859375) ( 39,079.523438)
-Last testing RMSE  (norm) (mean) : <     17.884077,      17.857244,     424.197327,      40.229027,      41.611652,      42.333130,     296.365631> (    523.026489) (    125.782593)
-Last training MSE  (norm) (mean) : <    313.179840,     308.312897, 180,159.390625,   1,626.495239,   1,684.989746,   1,792.440918,  86,261.929688> (199,768.406250) ( 38,878.105469)
-Last training RMSE (norm) (mean) : <     17.696888,      17.558842,     424.451874,      40.329830,      41.048626,      42.337227,     293.703827> (    521.676880) (    125.303871)
+Last testing MSE   (norm) (mean) : <    312.061646,     275.910278, 207,524.343750,   1,605.212036,   1,717.796509,   1,710.642700,  32,838.921875> (210,127.031250) ( 35,140.699219)
+Last testing RMSE  (norm) (mean) : <     17.665266,      16.610548,     455.548401,      40.065098,      41.446308,      41.359917,     181.215118> (    495.968628) (    113.415810)
+Last training MSE  (norm) (mean) : <    313.343079,     436.380585, 226,194.062500,   1,637.004272,   1,694.700684,   1,708.899902,  29,923.068359> (228,183.921875) ( 37,415.351562)
+Last training RMSE (norm) (mean) : <     17.701500,      20.889725,     475.598633,      40.459911,      41.166744,      41.338844,     172.982849> (    511.768951) (    115.734032)
 
 Label column names               : <        Iin[A],        Iout[A],          l[mm],         p1[mm],         p2[mm],         p3[mm],        win[mm]>
 
@@ -191,7 +191,9 @@ All labels median  (norm) (mean) : <     20.000000,      20.000000,     700.0000
 ...3rd quartile    (norm) (mean) : <     40.000000,      40.000000,   1,000.000000,      70.000000,      70.000000,      70.000000,     500.000000> (  1,126.010620) (    255.714279)
 All labels max     (norm) (mean) : <     40.000000,      40.000000,   1,300.000000,     100.000000,     100.000000,     100.000000,     700.000000> (  1,487.682739) (    340.000000)
 
-Wrote MSE errors (testing MSE for each epoch and then training MSE for each epoch) `dist/4th_dataset_dense_mse.csv'.
+Wrote MSE errors (testing MSE for each epoch and then training MSE for each epoch) to `dist/dense_mse.csv'.
+
+Saved trained model to `dist/dense.pt'.
 
 Done training all epochs.
 Have a good day.

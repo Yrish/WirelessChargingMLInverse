@@ -931,7 +931,7 @@ def run(
 
 	#npdata = simulation_data.data.values[:, :num_sim_in_out_columns]  # (No need for a numpy copy.)
 	all_data = torch.tensor(simulation_data.data.values[:, :num_sim_in_out_columns], dtype=torch.float32, device=data.device, requires_grad=False)
-	#all_labels = all_data.view(all_data.shape)[:, :num_sim_in_columns]
+	all_labels = all_data.view(all_data.shape)[:, :num_sim_in_columns]
 	all_input  = all_data.view(all_data.shape)[:, num_sim_in_columns:num_sim_in_out_columns]
 	all_gan_n  = all_data.view(all_data.shape)[:, num_sim_in_out_columns:]
 
@@ -1100,6 +1100,34 @@ def run(
 						logger.warning(line)
 		if num_warnings >= 1:
 			logger.warning("")
+
+	# Print MSE for each column.
+	nplabels = all_labels.numpy()
+
+	nperrors = (npoutput - nplabels)**2
+
+	mse_npmeans = np.apply_along_axis(np.mean, axis=0, arr=nperrors)
+	rmse_npmeans = np.sqrt(mse_npmeans)
+	mse_mean = mse_npmeans.mean()
+	rmse_mean = rmse_npmeans.mean()
+
+	labels_npvar = np.apply_along_axis(np.var, axis=0, arr=nplabels)
+	labels_npstd = np.apply_along_axis(np.std, axis=0, arr=nplabels)
+
+	logger.info("")
+	logger.info("Columns: <{0:s}>".format(", ".join(simulation_data.simulation_info.sim_input_names)))
+	logger.info("")
+	logger.info("Prediction MSEs for each column: <{0:s}>".format(", ".join("{0:f}".format(x) for x in mse_npmeans)))
+	logger.info("Label variance for each column: <{0:s}>".format(", ".join("{0:f}".format(x) for x in labels_npvar)))
+	logger.info("")
+	logger.info("Prediction RMSEs for each column: <{0:s}>".format(", ".join("{0:f}".format(x) for x in rmse_npmeans)))
+	logger.info("Label stddev for each column: <{0:s}>".format(", ".join("{0:f}".format(x) for x in labels_npstd)))
+	logger.info("")
+	logger.info("Mean of column MSEs: {0:f}".format(mse_mean))
+	logger.info("Mean of label variances: {0:f}".format(labels_npvar.mean()))
+	logger.info("")
+	logger.info("Mean of column RMSEs: {0:f}".format(rmse_mean))
+	logger.info("Mean of label stddevs: {0:f}".format(labels_npstd.mean()))
 
 	# Write the output.
 	simulation_data.save(output)

@@ -178,7 +178,7 @@ def train(
 		gan_n_columns_available = training_data.shape[1] - num_sim_in_out_columns
 		if gan_n_columns_available != gan_n and gan_n_columns_available != 0:
 			raise WCMIError(
-				"error: train: the number of GAN columns available in the CSV data does not match the --gan-n variable: {0:d} != {1:d}".format(
+				"error: train: there are GAN gen columns present, but the number of GAN columns available in the input CSV data does not match the --gan-n variable: {0:d} != {1:d}".format(
 					gan_n_columns_available, gan_n,
 				)
 			)
@@ -933,10 +933,30 @@ def run(
 	all_data = torch.tensor(simulation_data.data.values[:, :num_sim_in_out_columns], dtype=torch.float32, device=data.device, requires_grad=False)
 	#all_labels = all_data.view(all_data.shape)[:, :num_sim_in_columns]
 	all_input  = all_data.view(all_data.shape)[:, num_sim_in_columns:num_sim_in_out_columns]
+	all_gan_n  = all_data.view(all_data.shape)[:, num_sim_in_out_columns:]
+
+	if all_gan_n.shape[1] != gan_n and all_gan_n.shape[1] != 0:
+		raise WCMIError(
+			"error: run: there are GAN gen columns present, but the number of GAN columns available in the input CSV data does not match the --gan-n variable: {0:d} != {1:d}".format(
+				all_gan_n.shape[1], gan_n,
+			)
+		)
+	gan_fixed_gen = all_gan_n.shape[1] != 0
 
 	## Pass the numpy array through the model.
-	with torch.no_grad():
-		all_output = model(all_input)
+	if not use_gan:
+		with torch.no_grad():
+			all_output = model(all_input)
+	else:
+		if gan_fixed_gen:
+			gan_gen_params = data_gan_n
+		else:
+			# Don't use fixed GAN generation parameters.
+			# Generate random generation parameters.
+			gan_gen_params = torch.rand((len(all_input), gan_n), device=data.device)
+
+		with torch.no_grad():
+			all_output = model(all_input, gan_gen_params)
 	npoutput=all_output.numpy()
 
 	## Reconstruct the Pandas frame with appropriate columns.
@@ -953,7 +973,7 @@ def run(
 		(
 			npdata_extra[:, :num_sim_in_out_columns],
 			npoutput,
-			npdata_extra[:, num_sim_in_out_columns:],
+			npdata_extra[:, num_sim_in_out_columns:] if gan_fixed_gen else gan_gen_params.numpy(),
 		),
 		axis=1,
 	)
@@ -961,7 +981,7 @@ def run(
 	if use_gan:
 		# If the input columns lacked GAN columns, then add them now, since the
 		# GAN columns are present.
-		if len(input_columns) <= num_sim_in_columns:
+		if not gan_fixed_gen:
 			# No GAN columns.  Add them.
 			output_columns += ["GAN_{0:d}".format(gan_column_num) for gan_column_num in range(gan_n)]
 

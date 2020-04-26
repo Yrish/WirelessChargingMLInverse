@@ -19,7 +19,7 @@ import wcmi.nn.data as data
 default_gan_n = data.default_gan_n
 
 pytorch_supports_bilinear_in_sequential = False
-force_custom_gan_subnetwork_classes = False
+force_custom_gan_subnetwork_classes = True
 
 class GAN(modules.WCMIModule):
 	"""
@@ -124,7 +124,7 @@ class GAN(modules.WCMIModule):
 			self.discriminator = Discriminator(self.simulation_info.num_sim_inputs, self.simulation_info.num_sim_outputs)
 		else:
 			self.generator = nn.Sequential(
-				nn.Bilinear(self.gan_n, self.simulation_info.num_sim_outputs, 90),
+				nn.Bilinear(self.simulation_info.num_sim_outputs, self.gan_n, 90),
 				nn.LeakyReLU(0.1),
 				nn.Dropout(p=0.02),
 				nn.Linear(90, self.simulation_info.num_sim_inputs),
@@ -299,7 +299,7 @@ class Generator(nn.Module):
 	def __init__(self, gan_n, num_sim_inputs, num_sim_outputs, *args, **kwargs):
 		super().__init__(*args, **kwargs)
 
-		self.bilinear = nn.Bilinear(gan_n, num_sim_outputs, 90)
+		self.bilinear = nn.Bilinear(num_sim_outputs, gan_n, 90)
 		self.layer1 = nn.Sequential(
 			nn.LeakyReLU(0.1),
 			nn.Dropout(p=0.02),
@@ -308,8 +308,8 @@ class Generator(nn.Module):
 			#nn.BatchNorm1d(num_sim_inputs),
 		)
 
-	def forward(self, gan_gen, desired_sim_out):
-		x = self.bilinear(gan_gen, desired_sim_out)
+	def forward(self, desired_sim_out, gan_gen):
+		x = self.bilinear(desired_sim_out, gan_gen)
 		x = self.layer1(x)
 		return x
 

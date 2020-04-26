@@ -222,7 +222,9 @@ class WCMIModule(nn.Module):
 		destandardize=False,
 	):
 		"""Standardize a single input according to the parameters."""
-		if is_standardize:
+		if skip_all_standardize:
+			return v
+		elif is_standardize:
 			if not destandardize:
 				return (v - mean_in)/std_in
 			else:
@@ -238,6 +240,8 @@ class WCMIModule(nn.Module):
 					return 2*(v - min_in)/(max_in - min_in) - 1
 				else:
 					return (max_out - min_out) * ((v+1)/2) + min_out
+		else:
+			return v
 
 	@staticmethod
 	def destandardize_val(*args, **kwargs):
@@ -297,23 +301,20 @@ class WCMIModule(nn.Module):
 				for i, x in enumerate(input)
 			]
 		xs = forward(*xs, **kwargs)
-		if standardize_input_only:
-			return xs
-		else:
-			return self.destandardize_val(
-				xs,
-				skip_all_standardize=standardize_input_mask is not None and not standardize_input_mask[i],
-				is_standardize=self.standardize,
-				is_normalize=self.normalize_population or self.normalize_bounds,
+		return self.destandardize_val(
+			xs,
+			skip_all_standardize=standardize_input_only,
+			is_standardize=self.standardize,
+			is_normalize=self.normalize_population or self.normalize_bounds,
 
-				mean_in=self.population_mean_in, std_in=self.population_std_in,
-				mean_out=self.population_mean_out, std_out=self.population_std_out,
+			mean_in=self.population_mean_in, std_in=self.population_std_in,
+			mean_out=self.population_mean_out, std_out=self.population_std_out,
 
-				min_in=self.population_min_in if self.normalize_population else self.bounds_min_in,
-				max_in=self.population_max_in if self.normalize_population else self.bounds_max_in,
-				min_out=self.population_min_out if self.normalize_population else self.bounds_min_out,
-				max_out=self.population_max_out if self.normalize_population else self.bounds_max_out,
-			)
+			min_in=self.population_min_in if self.normalize_population else self.bounds_min_in,
+			max_in=self.population_max_in if self.normalize_population else self.bounds_max_in,
+			min_out=self.population_min_out if self.normalize_population else self.bounds_min_out,
+			max_out=self.population_max_out if self.normalize_population else self.bounds_max_out,
+		)
 
 	def forward(self, *input, **kwargs):
 		"""

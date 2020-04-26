@@ -86,4 +86,12 @@ auto_size_formatting = True
 # GAN parameter: keep the generator and the discriminator loss in balance.  If
 # the loss of the other is more than threshold times this value, pause training
 # this one.
-gan_training_pause_threshold = 8
+#
+# Set to None to disable pausing.
+gan_training_pause_threshold = 0.3
+
+# GAN parameter: Don't pause training of a subnetwork if fewer than this many
+# samples have been trained in an epoch.
+#
+# Set no None to disable pausing.
+pause_min_samples_per_epoch = 1024

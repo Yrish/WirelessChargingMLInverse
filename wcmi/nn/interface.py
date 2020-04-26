@@ -486,6 +486,8 @@ def train(
 			logger.info("")
 			logger.info("Wrote MSE errors (testing MSE for each epoch and then training MSE for each epoch) to `{0:s}'.".format(save_data_path))
 	else:
+		# Train the GAN model instead of the Dense model.
+
 		# Define simple tensors for the actual GAN labels:
 		generated_labels = torch.full((batch_size, 1), gan.GAN.GENERATED_LABEL_ITEM, device=data.device)
 		real_labels      = torch.full((batch_size, 1), gan.GAN.REAL_LABEL_ITEM,      device=data.device)
@@ -552,7 +554,7 @@ def train(
 		epoch_losses = torch.zeros((num_epochs, len(epoch_losses_columns),), device=data.device, requires_grad=False)
 
 		# Define the loss function and the optimizers.
-		loss_function = nn.BCELoss()
+		loss_function = nn.BCELoss(reduction="none")
 
 		# Give the optimizer a reference to our model's parameters, which
 		# include the model's weights and biases.  The optimizer will update
@@ -643,8 +645,8 @@ def train(
 				batch_input            = training_input[batch_slice]
 				batch_labels           = training_labels[batch_slice]
 
-				batch_generated_labels = training_labels[:len(batch_input)]
-				batch_real_labels      = training_labels[:len(batch_input)]
+				batch_generated_labels = generated_labels[:len(batch_input)]
+				batch_real_labels      = real_labels[:len(batch_input)]
 
 				# Does the user want fixed GAN generation parameters?
 				if gan_force_fixed_gen_params:
@@ -665,34 +667,52 @@ def train(
 
 				# Discriminator: forward pass one batch of real data.
 				discriminator_real_output = model(batch_input, batch_labels, subnetwork_selection=gan.GAN.GANSubnetworkSelection.DISCRIMINATOR_ONLY)
-				discriminator_real_loss = loss_function(discriminator_real_output, batch_real_labels)
+				discriminator_real_loss_unreduced = loss_function(discriminator_real_output, batch_real_labels)
+				discriminator_real_loss = discriminator_real_loss_unreduced.mean()
 
 				# Generate a batch of generated_data
 				generator_output = model(batch_input, gan_gen_params, subnetwork_selection=gan.GAN.GANSubnetworkSelection.GENERATOR_ONLY)
 
 				# Discriminator: forward pass one batch of generated data.
 				discriminator_generated_output = model(batch_input, batch_labels, subnetwork_selection=gan.GAN.GANSubnetworkSelection.DISCRIMINATOR_ONLY)
-				discriminator_generated_loss = loss_function(discriminator_generated_output, batch_generated_labels)
+				discriminator_generated_loss_unreduced = loss_function(discriminator_generated_output, batch_generated_labels)
+				discriminator_generated_loss = discriminator_generated_loss_unreduced.mean()
+
+				# Get the mean discriminator loss.
+				#discriminator_loss_unreduced = discriminator_real_loss + (discriminator_generated_loss - discriminator_real_loss )/2
+				discriminator_loss = np.mean((discriminator_real_loss.item(), discriminator_generated_loss.item()))
 
 				# Generator: get loss for the same forward pass.
-				generator_loss = loss_function(discriminator_generated_output, batch_real_labels)
+				generator_loss_unreduced = loss_function(discriminator_generated_output, batch_real_labels)
+				generator_loss = generator_loss_unreduced.mean()
+
+				# Determine which subnetwork trainings to pause.
+				if pause_threshold is None or data.pause_min_samples_per_epoch is None:
+					pause_discriminator = False
+					pause_generator     = False
+				elif current_epoch_num_discriminator_training_samples < data.pause_min_samples_per_epoch:
+					pause_discriminator = False
+					pause_generator     = False
+				else:
+					pause_discriminator = discriminator_loss <= generator_loss - pause_threshold
+					pause_generator     = generator_loss <= discriminator_loss - pause_threshold
 
 				# Train the discriminator if it isn't outperforming the
 				# generator by too much.
-				if discriminator_loss > generator_loss - skip_threshold:
+				if not pause_discriminator:
 					current_epoch_num_discriminator_training_samples += len(batch_input)
 
 					# Backpropogate to calculate the gradient and then optimize to
 					# update the weights (parameters).
-					discriminator_real_loss.backward()
+					discriminator_real_loss.backward(retain_graph=True)
 					discriminator_optimizer.step()
 
-					discriminator_generated_loss.backward()
+					discriminator_generated_loss.backward(retain_graph=not pause_generator)
 					discriminator_optimizer.step()
 
 				# Train the generator if it isn't outperforming the
 				# discriminator by too much.
-				if generator_loss > discriminator_loss - skip_threshold:
+				if not pause_generator:
 					current_epoch_num_generator_training_samples += len(batch_input)
 
 					generator_loss.backward()
@@ -700,7 +720,7 @@ def train(
 
 				# Record the losses for this batch.
 				current_epoch_training_losses[batch_slice] = torch.stack(
-					(discriminator_real_loss, discriminator_generated_loss, generator_loss),
+					(discriminator_real_loss_unreduced.detach()[:, 0], discriminator_generated_loss_unreduced.detach()[:, 0], generator_loss_unreduced.detach()[:, 0]),
 					axis=1,
 				)
 
@@ -710,15 +730,17 @@ def train(
 			# torch.no_grad() since we're not doing backpropagation here.
 			with torch.no_grad():
 				for batch in range(num_testing_batches):
+					total_batch = batch + num_training_batches
+
 					if not status_enabled or status_every_sample <= 0:
 						substatus_enabled = False
 					else:
-						substatus_enabled = batch * batch_size % status_every_sample < batch_size
+						substatus_enabled = total_batch * batch_size % status_every_sample < batch_size
 
 					# Print a status for the next sample?
 					if substatus_enabled:
 						logger.info("  Beginning sample #{0:,d}/{1:,d} (testing phase) (epoch #{2:,d}/{3:,d}).".format(
-							batch * batch_size + 1,
+							total_batch * batch_size + 1,
 							num_samples,
 							epoch + 1,
 							num_epochs,
@@ -731,8 +753,8 @@ def train(
 					batch_input            = testing_input[batch_slice]
 					batch_labels           = testing_labels[batch_slice]
 
-					batch_generated_labels = testing_labels[:len(batch_input)]
-					batch_real_labels      = testing_labels[:len(batch_input)]
+					batch_generated_labels = generated_labels[:len(batch_input)]
+					batch_real_labels      = real_labels[:len(batch_input)]
 
 					# Does the user want fixed GAN generation parameters?
 					if gan_force_fixed_gen_params:
@@ -753,21 +775,24 @@ def train(
 
 					# Discriminator: forward pass one batch of real data.
 					discriminator_real_output = model(batch_input, batch_labels, subnetwork_selection=gan.GAN.GANSubnetworkSelection.DISCRIMINATOR_ONLY)
-					discriminator_real_loss = loss_function(discriminator_real_output, batch_real_labels)
+					discriminator_real_loss_unreduced = loss_function(discriminator_real_output, batch_real_labels)
+					discriminator_real_loss = discriminator_real_loss_unreduced.mean()
 
 					# Generate a batch of generated_data
 					generator_output = model(batch_input, gan_gen_params, subnetwork_selection=gan.GAN.GANSubnetworkSelection.GENERATOR_ONLY)
 
 					# Discriminator: forward pass one batch of generated data.
 					discriminator_generated_output = model(batch_input, batch_labels, subnetwork_selection=gan.GAN.GANSubnetworkSelection.DISCRIMINATOR_ONLY)
-					discriminator_generated_loss = loss_function(discriminator_generated_output, batch_generated_labels)
+					discriminator_generated_loss_unreduced = loss_function(discriminator_generated_output, batch_generated_labels)
+					discriminator_generated_loss = discriminator_generated_loss_unreduced.mean()
 
 					# Generator: get loss for the same forward pass.
-					generator_loss = loss_function(discriminator_generated_output, batch_real_labels)
+					generator_loss_unreduced = loss_function(discriminator_generated_output, batch_real_labels)
+					generator_loss = generator_loss_unreduced.mean()
 
 					# Record the losses for this batch.
 					current_epoch_testing_losses[batch_slice] = torch.stack(
-						(discriminator_real_loss, discriminator_generated_loss, generator_loss),
+						(discriminator_real_loss_unreduced.detach()[:, 0], discriminator_generated_loss_unreduced.detach()[:, 0], generator_loss_unreduced.detach()[:, 0]),
 						axis=1,
 					)
 
@@ -814,8 +839,8 @@ def train(
 						epoch_losses[epoch][3],
 						epoch_losses[epoch][4],
 
-						epoch_losses[epoch][7],
-						epoch_losses[epoch][8],
+						int(round(epoch_losses[epoch][7].item())),
+						int(round(epoch_losses[epoch][8].item())),
 					)
 				)
 
@@ -825,6 +850,10 @@ def train(
 
 		# Did the user specify to save BCE errors?
 		if save_data_path is not None:
+			bce_output = pd.DataFrame(
+				data=epoch_losses,
+				columns=epoch_losses_columns,
+			)
 			# c.f. https://stackoverflow.com/a/41591077
 			for int_column in [
 				"num_discriminator_training_samples",
@@ -832,7 +861,7 @@ def train(
 				"num_discriminator_training_paused",
 				"num_generator_training_paused",
 			]:
-				bce_output[int_column] = mse_output[int_column].astype(int)
+				bce_output[int_column] = bce_output[int_column].astype(int)
 			bce_output.to_csv(save_data_path, index=False)
 
 			logger.info("")

@@ -21,6 +21,9 @@ default_gan_n = data.default_gan_n
 pytorch_supports_bilinear_in_sequential = False
 force_custom_gan_subnetwork_classes = True
 
+# Use res skip models rather than dense-like models?
+use_res_skips = True
+
 class GAN(modules.WCMIModule):
 	"""
 	The architecture for the GAN model.
@@ -296,38 +299,196 @@ default_default_subnetwork_selection = GAN.DEFAULT_DEFAULT_SUBNETWORK_SELECTION
 
 class Generator(nn.Module):
 	"""The generator subnetwork of a GAN."""
-	def __init__(self, gan_n, num_sim_inputs, num_sim_outputs, *args, **kwargs):
-		super().__init__(*args, **kwargs)
+	if not use_res_skips:
+		def __init__(self, gan_n, num_sim_inputs, num_sim_outputs, *args, **kwargs):
+			super().__init__(*args, **kwargs)
 
-		self.bilinear = nn.Bilinear(num_sim_outputs, gan_n, 90)
-		self.layer1 = nn.Sequential(
-			nn.LeakyReLU(0.1),
-			nn.Dropout(p=0.02),
-			nn.Linear(90, num_sim_inputs),
-			nn.Tanh() if data.is_standardized_negative() else nn.LeakyReLU(0.1),
-			#nn.BatchNorm1d(num_sim_inputs),
-		)
+			self.bilinear = nn.Bilinear(num_sim_outputs, gan_n, 90)
+			self.layer1 = nn.Sequential(
+				nn.LeakyReLU(0.1),
+				nn.Dropout(p=0.02),
+				nn.Linear(90, num_sim_inputs),
+				nn.Tanh() if data.is_standardized_negative() else nn.LeakyReLU(0.1),
+				#nn.BatchNorm1d(num_sim_inputs),
+			)
 
-	def forward(self, desired_sim_out, gan_gen):
-		x = self.bilinear(desired_sim_out, gan_gen)
-		x = self.layer1(x)
-		return x
+		def forward(self, desired_sim_out, gan_gen):
+			x = self.bilinear(desired_sim_out, gan_gen)
+			x = self.layer1(x)
+			return x
+	else:
+		def __init__(self, gan_n, num_sim_inputs, num_sim_outputs, *args, **kwargs):
+			super().__init__(*args, **kwargs)
+
+			self.bilinear = nn.Bilinear(num_sim_outputs, gan_n, 256)
+			self.layer0 = nn.Sequential(
+				nn.LeakyReLU(0.1),
+			)
+			self.layer1 = nn.Sequential(
+				nn.Linear(256, 256),
+				nn.LeakyReLU(0.1),
+				nn.BatchNorm1d(256),
+				nn.Sigmoid(),
+				#nn.Dropout(p=0.02),
+				nn.Linear(256, 256),
+				nn.Sigmoid(),
+			)
+			self.layer2 = nn.Sequential(
+				nn.Linear(256, 256),
+				nn.LeakyReLU(0.1),
+				nn.Linear(256, 256),
+				nn.LeakyReLU(0.1),
+			)
+			self.layer3 = nn.Sequential(
+				nn.Linear(256, 256),
+				nn.BatchNorm1d(256),
+				nn.Tanh(),
+				nn.Linear(256, 256),
+				nn.Tanh(),
+			)
+			self.layer3 = nn.Sequential(
+				nn.Linear(256, 256),
+				nn.LeakyReLU(0.1),
+				#nn.Dropout(p=0.02),
+				nn.Linear(256, 256),
+				nn.LeakyReLU(0.1),
+			)
+			self.layer4 = nn.Sequential(
+				nn.Linear(256, 256),
+				nn.ELU(alpha=1.0),
+				nn.Linear(256, 256),
+				nn.LeakyReLU(0.1),
+			)
+			self.layer5 = nn.Sequential(
+				nn.Linear(256, 4),
+				nn.LeakyReLU(0.1),
+				nn.Linear(4, 1024),
+				nn.LeakyReLU(0.1),
+				nn.Linear(1024, 256),
+				nn.LeakyReLU(0.1),
+			)
+			self.layer6 = nn.Sequential(
+				nn.Linear(256, 256),
+				#nn.LeakyReLU(0.1),
+				nn.Linear(256, 256),
+				#nn.LeakyReLU(0.1),
+			)
+			self.layer7 = nn.Bilinear(256, 256, 256)
+			self.layer8 = nn.Sequential(
+				nn.LeakyReLU(0.1),
+				nn.Linear(256, 256),
+				nn.LeakyReLU(0.1),
+				nn.Linear(256, num_sim_inputs),
+				nn.Tanh() if data.is_standardized_negative() else nn.LeakyReLU(0.1),
+				#nn.BatchNorm1d(num_sim_inputs),
+			)
+
+		def forward(self, desired_sim_out, gan_gen):
+			a1 = self.layer0(self.bilinear(desired_sim_out, gan_gen))
+			a2 = self.layer1(a1)
+			a3 = self.layer2(a2 + a1)
+			a4 = self.layer3(a3 + a2 + a1)
+			a5 = self.layer4(a4 + a3 + a2 + a1)
+			a6 = self.layer5(a5 + a4 + a2 + a1)
+			a7 = self.layer6(a6 + a5 + a2 + a1)
+			a8 = self.layer7(a7 + a6 + a2 + a1, a1)
+			a9 = self.layer8(a7 + a6 + a2 + a1)
+			return a9
 
 class Discriminator(nn.Module):
 	"""The discriminator subnetwork of a GAN."""
-	def __init__(self, num_sim_inputs, num_sim_outputs, *args, **kwargs):
-		super().__init__(*args, **kwargs)
+	if not use_res_skips:
+		def __init__(self, num_sim_inputs, num_sim_outputs, *args, **kwargs):
+			super().__init__(*args, **kwargs)
 
-		self.bilinear = nn.Bilinear(num_sim_outputs, num_sim_inputs, 90)
-		self.layer1 = nn.Sequential(
-			nn.LeakyReLU(0.1),
-			nn.Dropout(p=0.02),
-			nn.Linear(90, 1),
-			nn.Sigmoid(),
-			#nn.BatchNorm1d(1),
-		)
+			self.bilinear = nn.Bilinear(num_sim_outputs, num_sim_inputs, 90)
+			self.layer1 = nn.Sequential(
+				nn.LeakyReLU(0.1),
+				nn.Dropout(p=0.02),
+				nn.Linear(90, 1),
+				nn.Sigmoid(),
+				#nn.BatchNorm1d(1),
+			)
 
-	def forward(self, sim_out, sim_in):
-		x = self.bilinear(sim_out, sim_in)
-		x = self.layer1(x)
-		return x
+		def forward(self, sim_out, sim_in):
+			x = self.bilinear(sim_out, sim_in)
+			x = self.layer1(x)
+			return x
+	else:
+		def __init__(self, num_sim_inputs, num_sim_outputs, *args, **kwargs):
+			super().__init__(*args, **kwargs)
+
+			self.bilinear = nn.Bilinear(num_sim_outputs, num_sim_inputs, 256)
+			self.layer0 = nn.Sequential(
+				nn.LeakyReLU(0.1),
+			)
+			self.layer1 = nn.Sequential(
+				nn.Linear(256, 256),
+				nn.LeakyReLU(0.1),
+				nn.BatchNorm1d(256),
+				nn.Sigmoid(),
+				#nn.Dropout(p=0.02),
+				nn.Linear(256, 256),
+				nn.Sigmoid(),
+			)
+			self.layer2 = nn.Sequential(
+				nn.Linear(256, 256),
+				nn.LeakyReLU(0.1),
+				nn.Linear(256, 256),
+				nn.LeakyReLU(0.1),
+			)
+			self.layer3 = nn.Sequential(
+				nn.Linear(256, 256),
+				nn.BatchNorm1d(256),
+				nn.Tanh(),
+				nn.Linear(256, 256),
+				nn.Tanh(),
+			)
+			self.layer3 = nn.Sequential(
+				nn.Linear(256, 256),
+				nn.LeakyReLU(0.1),
+				#nn.Dropout(p=0.02),
+				nn.Linear(256, 256),
+				nn.LeakyReLU(0.1),
+			)
+			self.layer4 = nn.Sequential(
+				nn.Linear(256, 256),
+				nn.ELU(alpha=1.0),
+				nn.Linear(256, 256),
+				nn.LeakyReLU(0.1),
+			)
+			self.layer5 = nn.Sequential(
+				nn.Linear(256, 4),
+				nn.LeakyReLU(0.1),
+				nn.Linear(4, 1024),
+				nn.LeakyReLU(0.1),
+				nn.Linear(1024, 256),
+				nn.LeakyReLU(0.1),
+			)
+			self.layer6 = nn.Sequential(
+				nn.Linear(256, 256),
+				#nn.LeakyReLU(0.1),
+				nn.Linear(256, 256),
+				#nn.LeakyReLU(0.1),
+			)
+			self.layer7 = nn.Bilinear(256, 256, 256)
+			self.layer8 = nn.Sequential(
+				nn.LeakyReLU(0.1),
+				nn.Linear(256, 256),
+				nn.LeakyReLU(0.1),
+				nn.Linear(256, 1),
+				nn.Sigmoid(),
+				#nn.BatchNorm1d(num_sim_inputs),
+			)
+
+		def forward(self, sim_out, sim_in):
+			a1 = self.layer0(self.bilinear(sim_out, sim_in))
+			a2 = self.layer1(a1)
+			a3 = self.layer2(a2 + a1)
+			a4 = self.layer3(a3 + a2 + a1)
+			a5 = self.layer4(a4 + a3 + a2 + a1)
+			a6 = self.layer5(a5 + a4 + a2 + a1)
+			a7 = self.layer6(a6 + a5 + a2 + a1)
+			a8 = self.layer7(a7 + a6 + a2 + a1, a1)
+			a9 = self.layer8(a7 + a6 + a2 + a1)
+			return a9

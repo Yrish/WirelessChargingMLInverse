@@ -541,16 +541,8 @@ def train(
 			# discriminator, when using test input?
 			"testing_mean_generator_bce_loss",
 
-			# For how many samples was the discriminator trained while not
-			# paused during the training of this epoch?
-			#
-			# If this value is 0, then there was no training performed on the
-			# generator for this epoch.
-			"num_discriminator_training_samples",
-
-			# For how many samples was the generator trained while not paused
-			# during the training of this epoch?
-			"num_generator_training_samples",
+			# How many training samples were there in the dataset?
+			"num_training_samples",
 
 			# For how many samples was the discriminator training paused during
 			# the testing this epoch?
@@ -835,17 +827,14 @@ def train(
 			# "testing_mean_generator_bce_loss"
 			epoch_losses[epoch][5] = current_epoch_testing_losses[:, 2].mean()
 
-			# "num_discriminator_training_samples"
-			epoch_losses[epoch][6] = current_epoch_num_discriminator_training_samples
-
-			# "num_generator_training_samples"
-			epoch_losses[epoch][7] = current_epoch_num_generator_training_samples
+			# "num_training_samples"
+			epoch_losses[epoch][6] = num_training_samples
 
 			# "num_discriminator_training_paused"
-			epoch_losses[epoch][8] = current_epoch_num_discriminator_training_samples
+			epoch_losses[epoch][7] = num_training_samples - current_epoch_num_discriminator_training_samples
 
 			# "num_generator_training_paused"
-			epoch_losses[epoch][9] = current_epoch_num_generator_training_samples
+			epoch_losses[epoch][8] = num_training_samples - current_epoch_num_generator_training_samples
 
 			# Let the user know we've finished this epoch.
 			if status_enabled:
@@ -878,8 +867,7 @@ def train(
 			)
 			# c.f. https://stackoverflow.com/a/41591077
 			for int_column in [
-				"num_discriminator_training_samples",
-				"num_generator_training_samples",
+				"num_training_samples",
 				"num_discriminator_training_paused",
 				"num_generator_training_paused",
 			]:

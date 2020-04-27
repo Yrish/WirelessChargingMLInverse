@@ -22,7 +22,7 @@ pytorch_supports_bilinear_in_sequential = False
 force_custom_gan_subnetwork_classes = True
 
 # Use res skip models rather than dense-like models?
-use_res_skips = True
+custom_use_res_skips = True
 
 class GAN(modules.WCMIModule):
 	"""
@@ -299,7 +299,7 @@ default_default_subnetwork_selection = GAN.DEFAULT_DEFAULT_SUBNETWORK_SELECTION
 
 class Generator(nn.Module):
 	"""The generator subnetwork of a GAN."""
-	if not use_res_skips:
+	if not custom_use_res_skips:
 		def __init__(self, gan_n, num_sim_inputs, num_sim_outputs, *args, **kwargs):
 			super().__init__(*args, **kwargs)
 
@@ -405,7 +405,7 @@ class Generator(nn.Module):
 
 class Discriminator(nn.Module):
 	"""The discriminator subnetwork of a GAN."""
-	if not use_res_skips:
+	if not custom_use_res_skips:
 		def __init__(self, num_sim_inputs, num_sim_outputs, *args, **kwargs):
 			super().__init__(*args, **kwargs)
 

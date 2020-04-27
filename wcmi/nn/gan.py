@@ -401,7 +401,7 @@ class Generator(nn.Module):
 			a8  = self.layer7(a7 + a6 + a2 + a1, a1)
 			a9  = self.layer8(a8 + a7 + a2 + a1)
 			a10 = self.layer9(a9)
-			return a9
+			return a10
 
 class Discriminator(nn.Module):
 	"""The discriminator subnetwork of a GAN."""
@@ -493,7 +493,7 @@ class Discriminator(nn.Module):
 				nn.LeakyReLU(0.1),
 				nn.Linear(256, 1),
 				nn.Sigmoid(),
-				#nn.BatchNorm1d(num_sim_inputs),
+				#nn.BatchNorm1d(1),
 			)
 
 		def forward(self, sim_out, sim_in):
@@ -507,4 +507,4 @@ class Discriminator(nn.Module):
 			a8  = self.layer7(a7 + a6 + a2 + a1, a1)
 			a9  = self.layer8(a8 + a7 + a2 + a1)
 			a10 = self.layer9(a9)
-			return a9
+			return a10

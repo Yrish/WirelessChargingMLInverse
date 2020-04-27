@@ -95,7 +95,7 @@ default_gan_training_pause_threshold = 0.3
 # samples have been trained in an epoch.
 #
 # Set no 0 to disable the effect of this parameter.
-default_pause_min_samples_per_epoch = 1024
+default_pause_min_samples_per_epoch = 0
 
 # GAN parameter: don't pause training of a subnetwork if fewer than this many
 # epochs have been run.

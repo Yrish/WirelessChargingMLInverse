@@ -524,8 +524,12 @@ def train(
 			"training_mean_generator_bce_loss",
 
 			# During the testing phase in this epoch, what was the mean BCE
-			# loss for the discriminator?
-			"testing_mean_discriminator_bce_loss",
+			# loss for the discriminator for real data?
+			"testing_mean_discriminator_real_bce_loss",
+
+			# During the testing phase in this epoch, what was the mean BCE
+			# loss for the discriminator for generated data?
+			"testing_mean_discriminator_generated_bce_loss",
 
 			# During the testing phase in this epoch, what was the mean BCE
 			# loss for the generator?  How good was it at fooling the
@@ -808,28 +812,31 @@ def train(
 			# "training_mean_generator_bce_loss"
 			epoch_losses[epoch][2] = current_epoch_training_losses[:, 2].mean()
 
+			# "testing_mean_discriminator_real_bce_loss"
+			epoch_losses[epoch][3] = current_epoch_testing_losses[:, 0].mean()
+
 			# "testing_mean_discriminator_generated_bce_loss"
-			epoch_losses[epoch][3] = current_epoch_testing_losses[:, 0:2].mean()
+			epoch_losses[epoch][4] = current_epoch_testing_losses[:, 1].mean()
 
 			# "testing_mean_generator_bce_loss"
-			epoch_losses[epoch][4] = current_epoch_testing_losses[:, 2].mean()
+			epoch_losses[epoch][5] = current_epoch_testing_losses[:, 2].mean()
 
 			# "num_discriminator_training_samples"
-			epoch_losses[epoch][5] = current_epoch_num_discriminator_training_samples
+			epoch_losses[epoch][6] = current_epoch_num_discriminator_training_samples
 
 			# "num_generator_training_samples"
-			epoch_losses[epoch][6] = current_epoch_num_generator_training_samples
+			epoch_losses[epoch][7] = current_epoch_num_generator_training_samples
 
 			# "num_discriminator_training_paused"
-			epoch_losses[epoch][7] = current_epoch_num_discriminator_training_samples
+			epoch_losses[epoch][8] = current_epoch_num_discriminator_training_samples
 
 			# "num_generator_training_paused"
-			epoch_losses[epoch][8] = current_epoch_num_generator_training_samples
+			epoch_losses[epoch][9] = current_epoch_num_generator_training_samples
 
 			# Let the user know we've finished this epoch.
 			if status_enabled:
 				logger.info(
-					"Done training epoch #{0:,d}/{1:,d} (mean testing gen, disc loss: {2:f}, {3:f}) (mean training gen, disc_real, disc_gen loss: {4:f}, {5:f}, {6:f}) (lower is more accurate)) (paused gen, disc: {7:d}, {8:d}).".format(
+					"Done training epoch #{0:,d}/{1:,d} (mean testing gen, disc_real, disc_gen loss: {2:f}, {3:f}, {4:f}) (mean training gen, disc_real, disc_gen loss: {5:f}, {6:f}, {7:f}) (paused gen, disc: {8:d}, {9:d}).".format(
 						epoch + 1,
 						num_epochs,
 
@@ -838,6 +845,7 @@ def train(
 						epoch_losses[epoch][2],
 						epoch_losses[epoch][3],
 						epoch_losses[epoch][4],
+						epoch_losses[epoch][5],
 
 						int(round(epoch_losses[epoch][7].item())),
 						int(round(epoch_losses[epoch][8].item())),

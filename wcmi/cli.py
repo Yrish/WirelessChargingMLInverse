@@ -312,19 +312,19 @@ def get_argument_parser(prog=None):
 	)
 	parser.add_argument(
 		"--gan-training-pause-threshold", type=float, default=data.default_gan_training_pause_threshold,
-		help="(run --gan action): if a subnetwork outperforms the other by this quantity, pause training it."),
+		help="(run --gan action): if a subnetwork outperforms the other by this quantity, pause training it.",
 	)
 	parser.add_argument(
 		"--pause-min-samples-per-peoch", type=int, default=data.default_pause_min_samples_per_epoch,
-		help="(run --gan action): don't pause if fewer than this many samples have been trained on in the batches of this epoch."),
+		help="(run --gan action): don't pause if fewer than this many samples have been trained on in the batches of this epoch.",
 	)
 	parser.add_argument(
 		"--pause-min-epochs", type=int, default=data.default_pause_min_epochs,
-		help="(run --gan action): don't pause if fewer than this many epochs have been trained."),
+		help="(run --gan action): don't pause if fewer than this many epochs have been trained.",
 	)
 	parser.add_argument(
 		"--pause-max-epochs", type=int, default=data.default_pause_max_epochs,
-		help="(run --gan action): don't pause if more than this many epochs have been trained (set to 0 to disable)."),
+		help="(run --gan action): don't pause if more than this many epochs have been trained (set to 0 to disable).",
 	)
 
 	return parser

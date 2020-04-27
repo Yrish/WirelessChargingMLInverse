@@ -484,14 +484,14 @@ def get_default_actions(parser=argument_parser):
 		("train", {
 			"dense":        (True,                                  "--dense"),
 			"load_data":    ("data/4th_dataset_noid.csv",           "--load-data=data/4th_dataset_noid.csv"),
-			"save_model":   ("dist/dense.pt",                       "--save-model=dist/dense.pt"),
+			"save_model":   ("dist/dense_00_initial.pt",            "--save-model=dist/dense_00_initial.pt"),
 			"save_data":    ("dist/train_dense_mse_00_initial.csv", "--save-data=dist/train_dense_mse_00_initial.csv"),
 			"log":          ("dist/log/train_dense_00_initial.log", "--log=dist/log/train_dense_00_initial.log"),
 			"log_truncate": (True,                                  "--log-truncate"),
 		}),
 		("train", {
 			"dense":        (True,                                  "--dense"),
-			"load_model":   ("dist/dense.pt",                       "--load-model=dist/dense.pt"),
+			"load_model":   ("dist/dense_00_initial.pt",            "--load-model=dist/dense_00_initial.pt"),
 			"load_data":    ("data/4th_dataset_noid.csv",           "--load-data=data/4th_dataset_noid.csv"),
 			"save_model":   ("dist/dense.pt",                       "--save-model=dist/dense.pt"),
 			"save_data":    ("dist/train_dense_mse_01_repeat.csv",  "--save-data=dist/train_dense_mse_01_repeat.csv"),
@@ -501,14 +501,14 @@ def get_default_actions(parser=argument_parser):
 		("train", {
 			"gan":          (True,                                  "--gan"),
 			"load_data":    ("data/4th_dataset_noid.csv",           "--load-data=data/4th_dataset_noid.csv"),
-			"save_model":   ("dist/gan.pt",                         "--save-model=dist/gan.pt"),
+			"save_model":   ("dist/gan_00_initial.pt",              "--save-model=dist/gan_00_initial.pt"),
 			"save_data":    ("dist/train_gan_bce_00_initial.csv",   "--save-data=dist/train_gan_bce_00_initial.csv"),
 			"log":          ("dist/log/train_gan_00_initial.log",   "--log=dist/log/train_gan_00_initial.log"),
 			"log_truncate": (True,                                  "--log-truncate"),
 		}),
 		("train", {
 			"gan":          (True,                                  "--gan"),
-			"load_model":   ("dist/gan.pt",                         "--load-model=dist/gan.pt"),
+			"load_model":   ("dist/gan_00_initial.pt",              "--load-model=dist/gan_00_initial.pt"),
 			"load_data":    ("data/4th_dataset_noid.csv",           "--load-data=data/4th_dataset_noid.csv"),
 			"save_model":   ("dist/gan.pt",                         "--save-model=dist/gan.pt"),
 			"save_data":    ("dist/train_gan_bce_01_repeat.csv",    "--save-data=dist/train_gan_bce_01_repeat.csv"),

@@ -83,15 +83,28 @@ testing_split_seed = 42
 # Enable methods that try to automatically size certain groups of text output.
 auto_size_formatting = True
 
-# GAN parameter: keep the generator and the discriminator loss in balance.  If
-# the loss of the other is more than threshold times this value, pause training
-# this one.
-#
-# Set to None to disable pausing.
-gan_training_pause_threshold = 0.3
+# By default, can we pause training at most one GAN subnetwork if one is more
+# accurate than the other?
+default_gan_enable_pause = True
 
-# GAN parameter: Don't pause training of a subnetwork if fewer than this many
+# GAN parameter: keep the generator and the discriminator loss in balance.  If
+# the loss of the other is more than this value, pause training this one.
+default_gan_training_pause_threshold = 0.3
+
+# GAN parameter: don't pause training of a subnetwork if fewer than this many
 # samples have been trained in an epoch.
 #
-# Set no None to disable pausing.
-pause_min_samples_per_epoch = 1024
+# Set no 0 to disable the effect of this parameter.
+default_pause_min_samples_per_epoch = 1024
+
+# GAN parameter: don't pause training of a subnetwork if fewer than this many
+# epochs have been run.
+#
+# Set no 0 to disable the effect of this parameter.
+default_pause_min_epochs = 0
+
+# GAN parameter: don't pause training of a subnetwork if fewer than this many
+# epochs have been run.
+#
+# Set no 0 to disable the effect of this parameter.
+default_pause_max_epochs = 0

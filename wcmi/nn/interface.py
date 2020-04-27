@@ -33,6 +33,11 @@ def train(
 	batch_size=data.default_batch_size,
 	learning_rate=data.default_learning_rate,
 	gan_force_fixed_gen_params=False,
+	gan_enable_pause=data.default_gan_enable_pause,
+	gan_training_pause_threshold=data.default_gan_training_pause_threshold,
+	pause_min_samples_per_epoch=data.default_pause_min_samples_per_epoch,
+	pause_min_epochs=data.default_pause_min_epochs,
+	pause_max_epochs=data.default_pause_max_epochs,
 	logger=logger,
 ):
 	# TODO: also output linear regression for each column for all_data
@@ -495,7 +500,7 @@ def train(
 		# Keep the generator and the discriminator loss in balance.  If the
 		# loss of the other is more than threshold times this value, pause
 		# training this one.
-		pause_threshold = data.gan_training_pause_threshold
+		pause_threshold = gan_training_pause_threshold
 
 		# Within an epoch, per-sample losses.
 		# Cleared each epoch.
@@ -691,10 +696,19 @@ def train(
 				generator_loss = generator_loss_unreduced.mean()
 
 				# Determine which subnetwork trainings to pause.
-				if pause_threshold is None or data.pause_min_samples_per_epoch is None:
+				if not gan_enable_pause:
 					pause_discriminator = False
 					pause_generator     = False
-				elif current_epoch_num_discriminator_training_samples < data.pause_min_samples_per_epoch:
+				#elif pause_threshold is None or pause_min_samples_per_epoch is None or pause_min_epochs is None or pause_max_epochs is None:
+				#	pause_discriminator = False
+				#	pause_generator     = False
+				elif epoch < pause_min_epochs:
+					pause_discriminator = False
+					pause_generator     = False
+				elif pause_max_epochs > 0 and epoch > pause_max_epochs:
+					pause_discriminator = False
+					pause_generator     = False
+				elif current_epoch_num_discriminator_training_samples < pause_min_samples_per_epoch:
 					pause_discriminator = False
 					pause_generator     = False
 				else:

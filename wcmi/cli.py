@@ -304,6 +304,29 @@ def get_argument_parser(prog=None):
 
 	parser.add_argument("--output-keep-out-of-bounds-samples", action="store_true", help="(run action): For CSV predictions output only, keep rows with out-of-bounds predictions.")
 
+	# GAN training parameters.
+
+	parser.add_argument(
+		"--gan-disable-pause", action="store_false", dest="gan_enable_pause",
+		help="(run --gan action): disable pausing training a subnetwork under certain conditions.",
+	)
+	parser.add_argument(
+		"--gan-training-pause-threshold", type=float, default=data.default_gan_training_pause_threshold,
+		help="(run --gan action): if a subnetwork outperforms the other by this quantity, pause training it."),
+	)
+	parser.add_argument(
+		"--pause-min-samples-per-peoch", type=int, default=data.default_pause_min_samples_per_epoch,
+		help="(run --gan action): don't pause if fewer than this many samples have been trained on in the batches of this epoch."),
+	)
+	parser.add_argument(
+		"--pause-min-epochs", type=int, default=data.default_pause_min_epochs,
+		help="(run --gan action): don't pause if fewer than this many epochs have been trained."),
+	)
+	parser.add_argument(
+		"--pause-max-epochs", type=int, default=data.default_pause_max_epochs,
+		help="(run --gan action): don't pause if more than this many epochs have been trained (set to 0 to disable)."),
+	)
+
 	return parser
 
 argument_parser = get_argument_parser()
@@ -400,6 +423,11 @@ def train(options, parser=argument_parser, logger=logger):
 		batch_size=options.batch_size,
 		learning_rate=options.learning_rate,
 		gan_force_fixed_gen_params=options.gan_force_fixed_gen_params,
+		gan_enable_pause=options.gan_enable_pause,
+		gan_training_pause_threshold=options.gan_training_pause_threshold,
+		pause_min_samples_per_epoch=options.pause_min_samples_per_epoch,
+		pause_min_epochs=options.pause_min_epochs,
+		pause_max_epochs=options.pause_max_epochs,
 		logger=logger,
 	)
 
@@ -429,6 +457,16 @@ def run(options, parser=argument_parser, logger=logger):
 		raise WCMIArgsError("error: the run action doesn't support --batch-size.")
 	if options.learning_rate != data.default_learning_rate:
 		raise WCMIArgsError("error: the run action doesn't support --learning-rate.")
+	if options.gan_enable_pause != data.default_gan_enable_pause:
+		raise WCMIArgsError("error: the run action doesn't support --gan-disable-pause.")
+	if options.gan_training_pause_threshold != data.default_gan_training_pause_threshold:
+		raise WCMIArgsError("error: the run action doesn't support --gan-training-pause-threshold.")
+	if options.pause_min_samples_per_epoch != data.default_pause_min_samples_per_epoch:
+		raise WCMIArgsError("error: the run action doesn't support --pause-min-samples-per-epoch.")
+	if options.pause_min_epochs != data.default_pause_min_epochs:
+		raise WCMIArgsError("error: the run action doesn't support --pause-min-epochs.")
+	if options.pause_max_epochs != data.default_pause_max_epochs:
+		raise WCMIArgsError("error: the run action doesn't support --pause-max-epochs.")
 
 	# Call the action.
 	return wnn.interface.run(
@@ -466,9 +504,19 @@ def stats(options, parser=argument_parser, logger=logger):
 		raise WCMIArgsError("error: the stats action doesn't support --gan-force-fixed-gen-params.")
 
 	if options.batch_size != data.default_batch_size:
-		raise WCMIArgsError("error: the train action doesn't support --batch-size.")
+		raise WCMIArgsError("error: the stats action doesn't support --batch-size.")
 	if options.learning_rate != data.default_learning_rate:
-		raise WCMIArgsError("error: the train action doesn't support --learning-rate.")
+		raise WCMIArgsError("error: the stats action doesn't support --learning-rate.")
+	if options.gan_enable_pause != data.default_gan_enable_pause:
+		raise WCMIArgsError("error: the stats action doesn't support --gan-disable-pause.")
+	if options.gan_training_pause_threshold != data.default_gan_training_pause_threshold:
+		raise WCMIArgsError("error: the stats action doesn't support --gan-training-pause-threshold.")
+	if options.pause_min_samples_per_epoch != data.default_pause_min_samples_per_epoch:
+		raise WCMIArgsError("error: the stats action doesn't support --pause-min-samples-per-epoch.")
+	if options.pause_min_epochs != data.default_pause_min_epochs:
+		raise WCMIArgsError("error: the stats action doesn't support --pause-min-epochs.")
+	if options.pause_max_epochs != data.default_pause_max_epochs:
+		raise WCMIArgsError("error: the stats action doesn't support --pause-max-epochs.")
 
 	# Call the action.
 	return wnn.interface.stats(

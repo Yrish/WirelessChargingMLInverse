@@ -315,7 +315,7 @@ def get_argument_parser(prog=None):
 		help="(run --gan action): if a subnetwork outperforms the other by this quantity, pause training it.",
 	)
 	parser.add_argument(
-		"--pause-min-samples-per-peoch", type=int, default=data.default_pause_min_samples_per_epoch,
+		"--pause-min-samples-per-epoch", type=int, default=data.default_pause_min_samples_per_epoch,
 		help="(run --gan action): don't pause if fewer than this many samples have been trained on in the batches of this epoch.",
 	)
 	parser.add_argument(

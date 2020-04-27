@@ -551,7 +551,7 @@ def get_default_actions(parser=argument_parser):
 			"load_data":    ("data/4th_dataset_noid.csv",           "--load-data=data/4th_dataset_noid.csv"),
 			"save_model":   ("dist/gan_00_initial.pt",              "--save-model=dist/gan_00_initial.pt"),
 			"save_data":    ("dist/train_gan_bce_00_initial.csv",   "--save-data=dist/train_gan_bce_00_initial.csv"),
-			"pause_min_samples_per_epoch": (1024,                   "--pause-min-samples-per-epoch=1024"),
+			#"pause_min_samples_per_epoch": (1024,                   "--pause-min-samples-per-epoch=1024"),
 			"log":          ("dist/log/train_gan_00_initial.log",   "--log=dist/log/train_gan_00_initial.log"),
 			"log_truncate": (True,                                  "--log-truncate"),
 		}),

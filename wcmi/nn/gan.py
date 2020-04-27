@@ -378,21 +378,29 @@ class Generator(nn.Module):
 				nn.LeakyReLU(0.1),
 				nn.Linear(256, 256),
 				nn.LeakyReLU(0.1),
+				nn.Linear(256, 256),
+				nn.LeakyReLU(0.1),
+			)
+			self.layer9 = nn.Sequential(
+				nn.LeakyReLU(0.1),
+				nn.Linear(256, 256),
+				nn.LeakyReLU(0.1),
 				nn.Linear(256, num_sim_inputs),
 				nn.Tanh() if data.is_standardized_negative() else nn.LeakyReLU(0.1),
 				#nn.BatchNorm1d(num_sim_inputs),
 			)
 
 		def forward(self, desired_sim_out, gan_gen):
-			a1 = self.layer0(self.bilinear(desired_sim_out, gan_gen))
-			a2 = self.layer1(a1)
-			a3 = self.layer2(a2 + a1)
-			a4 = self.layer3(a3 + a2 + a1)
-			a5 = self.layer4(a4 + a3 + a2 + a1)
-			a6 = self.layer5(a5 + a4 + a2 + a1)
-			a7 = self.layer6(a6 + a5 + a2 + a1)
-			a8 = self.layer7(a7 + a6 + a2 + a1, a1)
-			a9 = self.layer8(a7 + a6 + a2 + a1)
+			a1  = self.layer0(self.bilinear(desired_sim_out, gan_gen))
+			a2  = self.layer1(a1)
+			a3  = self.layer2(a2 + a1)
+			a4  = self.layer3(a3 + a2 + a1)
+			a5  = self.layer4(a4 + a3 + a2 + a1)
+			a6  = self.layer5(a5 + a4 + a2 + a1)
+			a7  = self.layer6(a6 + a5 + a2 + a1)
+			a8  = self.layer7(a7 + a6 + a2 + a1, a1)
+			a9  = self.layer8(a8 + a7 + a2 + a1)
+			a10 = self.layer9(a9)
 			return a9
 
 class Discriminator(nn.Module):
@@ -476,19 +484,27 @@ class Discriminator(nn.Module):
 				nn.LeakyReLU(0.1),
 				nn.Linear(256, 256),
 				nn.LeakyReLU(0.1),
+				nn.Linear(256, 256),
+				nn.LeakyReLU(0.1),
+			)
+			self.layer9 = nn.Sequential(
+				nn.LeakyReLU(0.1),
+				nn.Linear(256, 256),
+				nn.LeakyReLU(0.1),
 				nn.Linear(256, 1),
 				nn.Sigmoid(),
 				#nn.BatchNorm1d(num_sim_inputs),
 			)
 
 		def forward(self, sim_out, sim_in):
-			a1 = self.layer0(self.bilinear(sim_out, sim_in))
-			a2 = self.layer1(a1)
-			a3 = self.layer2(a2 + a1)
-			a4 = self.layer3(a3 + a2 + a1)
-			a5 = self.layer4(a4 + a3 + a2 + a1)
-			a6 = self.layer5(a5 + a4 + a2 + a1)
-			a7 = self.layer6(a6 + a5 + a2 + a1)
-			a8 = self.layer7(a7 + a6 + a2 + a1, a1)
-			a9 = self.layer8(a7 + a6 + a2 + a1)
+			a1  = self.layer0(self.bilinear(sim_out, sim_in))
+			a2  = self.layer1(a1)
+			a3  = self.layer2(a2 + a1)
+			a4  = self.layer3(a3 + a2 + a1)
+			a5  = self.layer4(a4 + a3 + a2 + a1)
+			a6  = self.layer5(a5 + a4 + a2 + a1)
+			a7  = self.layer6(a6 + a5 + a2 + a1)
+			a8  = self.layer7(a7 + a6 + a2 + a1, a1)
+			a9  = self.layer8(a8 + a7 + a2 + a1)
+			a10 = self.layer9(a9)
 			return a9

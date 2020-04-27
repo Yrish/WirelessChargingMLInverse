@@ -2,65 +2,61 @@ Logging enabled.
 ./wcmi.py run --dense --load-model=dist/dense.pt --load-data=data/4th_dataset_noid.csv --save-data=dist/4th_dataset_dense_predictions.csv --log=dist/log/run_dense.log --log-truncate
 All model predictions are within the minimum and maximum boundaries.
 
-WARNING: there are few unique values (#3) for predictions for simulation input parameter #1 (`Iin[A]`):
-  35.805527 x3,419
-  10.861142 x2,907
-  10.861408
+WARNING: there is little variance in the predictions for simulation input parameter #1 (`Iin[A]`): std <= this_threshold: 4.996960 <= 9.900000.
+WARNING: there are few unique values (#2) for predictions for simulation input parameter #1 (`Iin[A]`):
+  35.805527 x6,062
+  10.861142 x265
 
-WARNING: there are few unique values (#13) for predictions for simulation input parameter #2 (`Iout[A]`):
-  35.805527 x3,524
-  10.861142 x2,792
-  35.805515
-  35.805233
-  35.80505 
-  35.739338
-  34.211838
-  16.566713
-  13.350391
-  10.932043
-  10.861154
-  10.861144
-  10.861143
+WARNING: there are few unique values (#6) for predictions for simulation input parameter #2 (`Iout[A]`):
+  35.805527 x4,383
+  10.861142 x1,940
+  35.647484
+  15.624127
+  10.862608
+  10.861241
 
-WARNING: there are few unique values (#5) for predictions for simulation input parameter #3 (`l[mm]`):
-  1063.6742 x3,624
-  463.49515 x2,700
-  1063.5876
-  463.49548
-  463.49527
+WARNING: there are few unique values (#2) for predictions for simulation input parameter #3 (`l[mm]`):
+  463.49515 x4,491
+  1063.6742 x1,836
 
-WARNING: there are few unique values (#3) for predictions for simulation input parameter #4 (`p1[mm]`):
-  74.60128  x3,550
-  17.34751  x2,776
-  19.515953
+WARNING: there is little variance in the predictions for simulation input parameter #4 (`p1[mm]`): std <= this_threshold: 4.411135 <= 14.700000.
+WARNING: there are few unique values (#10) for predictions for simulation input parameter #4 (`p1[mm]`):
+  17.34751  x6,286
+  74.60128  x33
+  74.601234
+  74.58853 
+  74.07401 
+  71.960846
+  71.44392 
+  17.936428
+  17.347702
+  17.347628
 
-WARNING: there are few unique values (#2) for predictions for simulation input parameter #5 (`p2[mm]`):
-  17.892233 x3,523
-  76.10492  x2,804
+WARNING: there are few unique values (#3) for predictions for simulation input parameter #5 (`p2[mm]`):
+  76.10492  x5,879
+  17.892233 x447
+  76.10478 
 
-WARNING: there are few unique values (#3) for predictions for simulation input parameter #6 (`p3[mm]`):
-  17.892233 x3,544
-  76.10492  x2,782
-  76.10167 
+WARNING: there are few unique values (#2) for predictions for simulation input parameter #6 (`p3[mm]`):
+  17.892233 x4,472
+  76.10492  x1,855
 
-WARNING: there are few unique values (#4) for predictions for simulation input parameter #7 (`win[mm]`):
-  125.0428  x3,654
-  539.2531  x2,671
-  539.2514 
-  539.2429 
+WARNING: there are few unique values (#2) for predictions for simulation input parameter #7 (`win[mm]`):
+  125.0428  x4,347
+  539.2531  x1,980
 
 
 Columns: <Iin[A], Iout[A], l[mm], p1[mm], p2[mm], p3[mm], win[mm]>
 
-Prediction MSEs for each column: <310.296356, 286.019165, 127345.242188, 1586.481079, 1721.850220, 1803.975952, 134313.406250>
+Prediction MSEs for each column: <311.479126, 279.600769, 166588.265625, 1632.172729, 1746.096069, 1574.792969, 33784.953125>
 Label variance for each column: <155.555573, 155.555557, 90053.718750, 819.498596, 847.179260, 847.179260, 42892.542969>
 
-Prediction RMSEs for each column: <17.615231, 16.912102, 356.854645, 39.830654, 41.495182, 42.473240, 366.487946>
+Prediction RMSEs for each column: <17.648771, 16.721268, 408.152252, 40.400158, 41.786316, 39.683662, 183.806839>
 Label stddev for each column: <12.472192, 12.472192, 300.089508, 28.626886, 29.106344, 29.106344, 207.105148>
 
-Mean of column MSEs: 38195.320312
+Mean of column MSEs: 29416.765625
 Mean of label variances: 19395.890625
 
-Mean of column RMSEs: 125.952721
+Mean of column RMSEs: 106.885605
 Mean of label stddevs: 88.425522
 Wrote CSV output with predictions to `dist/4th_dataset_dense_predictions.csv'.

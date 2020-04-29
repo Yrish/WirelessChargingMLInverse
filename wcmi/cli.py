@@ -588,6 +588,7 @@ def get_default_actions(parser=argument_parser):
 	"default" action.
 	"""
 	return (
+		# No reversing:
 		("train", {
 			"dense":        (True,                                  "--dense"),
 			"load_data":    ("data/4th_dataset_noid.csv",           "--load-data=data/4th_dataset_noid.csv"),
@@ -641,6 +642,98 @@ def get_default_actions(parser=argument_parser):
 			"log_truncate": (True,                                  "--log-truncate"),
 		}),
 
+		# Reverse sequence:
+		("train", {
+			"dense":        (True,                                  "--dense"),
+			"reverse":      (True,                                  "--reverse"),
+			"load_data":    ("data/4th_dataset_noid.csv",           "--load-data=data/4th_dataset_noid.csv"),
+			"save_model":   ("dist/reverse_dense_00_initial.pt",    "--save-model=dist/reverse_dense_00_initial.pt"),
+			"save_data":    ("dist/reverse_train_dense_mse_00_initial.csv", "--save-data=dist/reverse_train_dense_mse_00_initial.csv"),
+			"log":          ("dist/log/reverse_train_dense_00_initial.log", "--log=dist/log/reverse_train_dense_00_initial.log"),
+			"log_truncate": (True,                                  "--log-truncate"),
+		}),
+		("train", {
+			"dense":        (True,                                  "--dense"),
+			"reverse":      (True,                                  "--reverse"),
+			"load_model":   ("dist/dense_00_initial.pt",            "--load-model=dist/dense_00_initial.pt"),
+			"load_data":    ("data/4th_dataset_noid.csv",           "--load-data=data/4th_dataset_noid.csv"),
+			"save_model":   ("dist/dense.pt",                       "--save-model=dist/dense.pt"),
+			"save_data":    ("dist/reverse_train_dense_mse_01_repeat.csv", "--save-data=dist/reverse_train_dense_mse_01_repeat.csv"),
+			"log":          ("dist/log/reverse_train_dense_01_repeat.log", "--log=dist/log/reverse_train_dense_01_repeat.log"),
+			"log_truncate": (True,                                  "--log-truncate"),
+		}),
+		("train", {
+			"gan":          (True,                                  "--gan"),
+			"reverse":      (True,                                  "--reverse"),
+			"load_data":    ("data/4th_dataset_noid.csv",           "--load-data=data/4th_dataset_noid.csv"),
+			"save_model":   ("dist/reverse_gan_00_initial.pt",      "--save-model=dist/reverse_gan_00_initial.pt"),
+			"save_data":    ("dist/reverse_train_gan_bce_00_initial.csv", "--save-data=dist/reverse_train_gan_bce_00_initial.csv"),
+			#"pause_min_samples_per_epoch": (1024,                   "--pause-min-samples-per-epoch=1024"),
+			"log":          ("dist/log/reverse_train_gan_00_initial.log", "--log=dist/log/reverse_train_gan_00_initial.log"),
+			"log_truncate": (True,                                  "--log-truncate"),
+		}),
+		("train", {
+			"gan":          (True,                                  "--gan"),
+			"reverse":      (True,                                  "--reverse"),
+			"load_model":   ("dist/gan_00_initial.pt",              "--load-model=dist/gan_00_initial.pt"),
+			"load_data":    ("data/4th_dataset_noid.csv",           "--load-data=data/4th_dataset_noid.csv"),
+			"save_model":   ("dist/reverse_gan.pt",                 "--save-model=dist/reverse_gan.pt"),
+			"save_data":    ("dist/reverse_train_gan_bce_01_repeat.csv", "--save-data=dist/reverse_train_gan_bce_01_repeat.csv"),
+			"log":          ("dist/log/train_gan_01_repeat.log",    "--log=dist/log/train_gan_01_repeat.log"),
+			"log_truncate": (True,                                  "--log-truncate"),
+		}),
+
+		("run", {
+			"dense":        (True,                                  "--dense"),
+			"load_model":   ("dist/dense.pt",                       "--load-model=dist/dense.pt"),
+			"load_data":    ("data/4th_dataset_noid.csv",           "--load-data=data/4th_dataset_noid.csv"),
+			"save_data":    ("dist/reverse_4th_dataset_dense_predictions.csv", "--save-data=dist/reverse_4th_dataset_dense_predictions.csv"),
+			"log":          ("dist/log/reverse_run_dense.log",      "--log=dist/log/reverse_run_dense.log"),
+			"log_truncate": (True,                                  "--log-truncate"),
+		}),
+		("run", {
+			"gan":          (True,                                  "--gan"),
+			"load_model":   ("dist/reverse_gan.pt",                 "--load-model=dist/reverse_gan.pt"),
+			"load_data":    ("data/4th_dataset_noid.csv",           "--load-data=data/4th_dataset_noid.csv"),
+			"save_data":    ("dist/reverse_4th_dataset_gan_predictions.csv", "--save-data=dist/reverse_4th_dataset_gan_predictions.csv"),
+			"log":          ("dist/log/reverse_run_gan.log",        "--log=dist/log/reverse_run_gan.log"),
+			"log_truncate": (True,                                  "--log-truncate"),
+		}),
+
+		# GAN with reversed gan sequence:
+		("train", {
+			"gan":          (True,                                  "--gan"),
+			"load_reversed_model": ("dist/reverse_gat.pt",          "--load-reversed-model=dist/reverse_gat.pt"),
+			"reversed_gan": (True,                                  "--reversed-gan"),
+			"load_data":    ("data/4th_dataset_noid.csv",           "--load-data=data/4th_dataset_noid.csv"),
+			"save_model":   ("dist/with_reversed_gan_gan_00_initial.pt", "--save-model=dist/with_reversed_gan_gan_00_initial.pt"),
+			"save_data":    ("dist/with_reversed_gan_train_gan_bce_00_initial.csv",   "--save-data=dist/with_reversed_gan_train_gan_bce_00_initial.csv"),
+			#"pause_min_samples_per_epoch": (1024,                   "--pause-min-samples-per-epoch=1024"),
+			"log":          ("dist/log/with_reversed_gan_train_gan_00_initial.log", "--log=dist/log/with_reversed_gan_train_gan_00_initial.log"),
+			"log_truncate": (True,                                  "--log-truncate"),
+		}),
+		("train", {
+			"gan":          (True,                                  "--gan"),
+			"load_model":   ("dist/with_reversed_gan_gan_00_initial.pt", "--load-model=dist/with_reversed_gan_gan_00_initial.pt"),
+			"load_reversed_model": ("dist/reverse_gat.pt",          "--load-reversed-model=dist/reverse_gat.pt"),
+			"reversed_gan": (True,                                  "--reversed-gan"),
+			"load_data":    ("data/4th_dataset_noid.csv",           "--load-data=data/4th_dataset_noid.csv"),
+			"save_model":   ("dist/with_reversed_gan_gan.pt",       "--save-model=dist/with_reversed_gan_gan.pt"),
+			"save_data":    ("dist/with_reversed_gan_train_gan_bce_01_repeat.csv", "--save-data=dist/with_reversed_gan_train_gan_bce_01_repeat.csv"),
+			"log":          ("dist/log/with_reversed_gan_train_gan_01_repeat.log", "--log=dist/log/with_reversed_gan_train_gan_01_repeat.log"),
+			"log_truncate": (True,                                  "--log-truncate"),
+		}),
+
+		("run", {
+			"gan":          (True,                                  "--gan"),
+			"load_model":   ("dist/with_reversed_gan_gan.pt",       "--load-model=dist/with_reversed_gan_gan.pt"),
+			"load_data":    ("data/4th_dataset_noid.csv",           "--load-data=data/4th_dataset_noid.csv"),
+			"save_data":    ("dist/with_reversed_gan_4th_dataset_gan_predictions.csv", "--save-data=dist/with_reversed_gan_4th_dataset_gan_predictions.csv"),
+			"log":          ("dist/log/with_reversed_gan_run_gan.log", "--log=dist/log/with_reversed_gan_run_gan.log"),
+			"log_truncate": (True,                                  "--log-truncate"),
+		}),
+
+		# Stats on non-reverse training and running:
 		("stats", {
 			"load_data":    ("dist/4th_dataset_dense_mse.csv",      "--load-data=dist/4th_dataset_dense_mse.csv"),
 			"save_data":    ("dist/stats",                          "--save-data=dist/stats"),
@@ -663,6 +756,46 @@ def get_default_actions(parser=argument_parser):
 			"load_data":    ("dist/4th_dataset_gan_predictions.csv", "--load-data=dist/4th_dataset_gan_predictions.csv"),
 			"save_data":    ("dist/stats",                          "--save-data=dist/stats"),
 			"log":          ("dist/log/stats_gan_predictions.log",  "--log=dist/log/stats_gan_predictions.log"),
+			"log_truncate": (True,                                  "--log-truncate"),
+		}),
+
+		# Stats on reverse training and running:
+		("stats", {
+			"load_data":    ("dist/reversed_4th_dataset_dense_mse.csv", "--load-data=dist/reversed_4th_dataset_dense_mse.csv"),
+			"save_data":    ("dist/stats",                          "--save-data=dist/stats"),
+			"log":          ("dist/log/reversed_stats_dense_mse.log", "--log=dist/log/reversed_stats_dense_mse.log"),
+			"log_truncate": (True,                                  "--log-truncate"),
+		}),
+		("stats", {
+			"load_data":    ("dist/reversed_4th_dataset_gan_bce.csv", "--load-data=dist/reversed_4th_dataset_gan_bce.csv"),
+			"save_data":    ("dist/stats",                          "--save-data=dist/stats"),
+			"log":          ("dist/log/reversed_stats_gan_bce.log", "--log=dist/log/reversed_stats_gan_bce.log"),
+			"log_truncate": (True,                                  "--log-truncate"),
+		}),
+		("stats", {
+			"load_data":    ("dist/reversed_4th_dataset_dense_predictions.csv", "--load-data=dist/reversed_4th_dataset_dense_predictions.csv"),
+			"save_data":    ("dist/stats",                          "--save-data=dist/stats"),
+			"log":          ("dist/log/reversed_stats_dense_predictions.log", "--log=dist/log/reversed_stats_dense_predictions.log"),
+			"log_truncate": (True,                                  "--log-truncate"),
+		}),
+		("stats", {
+			"load_data":    ("dist/reversed_4th_dataset_gan_predictions.csv", "--load-data=dist/reversed_4th_dataset_gan_predictions.csv"),
+			"save_data":    ("dist/stats",                          "--save-data=dist/stats"),
+			"log":          ("dist/log/reversed_stats_gan_predictions.log",  "--log=dist/log/reversed_stats_gan_predictions.log"),
+			"log_truncate": (True,                                  "--log-truncate"),
+		}),
+
+		# Stats on gan with reversed gan:
+		("stats", {
+			"load_data":    ("dist/with_reversed_gan_4th_dataset_gan_bce.csv", "--load-data=dist/with_reversed_gan_4th_dataset_gan_bce.csv"),
+			"save_data":    ("dist/stats",                          "--save-data=dist/stats"),
+			"log":          ("dist/log/with_reversed_gan_stats_gan_bce.log",          "--log=dist/log/with_reversed_gan_stats_gan_bce.log"),
+			"log_truncate": (True,                                  "--log-truncate"),
+		}),
+		("stats", {
+			"load_data":    ("dist/with_reversed_gan_4th_dataset_gan_predictions.csv", "--load-data=dist/with_reversed_gan_4th_dataset_gan_predictions.csv"),
+			"save_data":    ("dist/stats",                          "--save-data=dist/stats"),
+			"log":          ("dist/log/with_reversed_gan_stats_gan_predictions.log",  "--log=dist/log/with_reversed_gan_stats_gan_predictions.log"),
 			"log_truncate": (True,                                  "--log-truncate"),
 		}),
 	)

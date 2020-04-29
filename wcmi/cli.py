@@ -540,15 +540,16 @@ def stats(options, parser=argument_parser, prog=None, logger=logger):
 	verify_common_options(options)
 	verify_load_data_options(options)
 
-	if options.load_data is not None:
+	if options.load_data is None:
 		raise WCMIArgsError("error: the stats action requires --load-data.")
-	if options.save_data is not None:
+	if options.save_data is None:
 		raise WCMIArgsError("error: the stats action requires --save-data.")
+
 	if options.load_reversed_model is not None:
 		raise WCMIArgsError("error: the stats action doesn't support --load-reversed-model.")
-	if options.load_model is None:
+	if options.load_model is not None:
 		raise WCMIArgsError("error: the stats action doesn't support --load-model.")
-	if options.save_model is None:
+	if options.save_model is not None:
 		raise WCMIArgsError("error: the stats action doesn't support --save-model.")
 
 	if options.reverse:
@@ -582,12 +583,68 @@ def stats(options, parser=argument_parser, prog=None, logger=logger):
 		logger=logger,
 	)
 
+@add_action
+def generate(options, parser=argument_parser, prog=None, logger=logger):
+	"""
+	Just generate 10,000 rows of random data.
+	"""
+
+	# Verify command-line arguments.
+	verify_common_options(options)
+
+	if options.save_data is None:
+		raise WCMIArgsError("error: the generate action requires --save-data.")
+
+	if options.load_data is not None:
+		raise WCMIArgsError("error: the generate action doesn't support --load-data.")
+	if options.load_reversed_model is not None:
+		raise WCMIArgsError("error: the generate action doesn't support --load-reversed-model.")
+	if options.load_model is not None:
+		raise WCMIArgsError("error: the generate action doesn't support --load-model.")
+	if options.save_model is not None:
+		raise WCMIArgsError("error: the generate action doesn't support --save-model.")
+
+	if options.reverse:
+		raise WCMIArgsError("error: the generate action doesn't support --reverse.")
+	if options.output_keep_out_of_bounds_samples:
+		raise WCMIArgsError("error: the generate action doesn't support --output-keep-out-of-bounds-samples.")
+	if options.gan_force_fixed_gen_params:
+		raise WCMIArgsError("error: the generate action doesn't support --gan-force-fixed-gen-params.")
+	if options.reversed_dense:
+		raise WCMIArgsError("error: the generate action doesn't support --reversed-dense.  It is only used with --load-reversed-model for the train action.")
+	if options.reversed_gan:
+		raise WCMIArgsError("error: the generate action doesn't support --reversed-gan.  It is only used with --load-reversed-model for the train action.")
+
+	if options.batch_size != data.default_batch_size:
+		raise WCMIArgsError("error: the generate action doesn't support --batch-size.")
+	if options.learning_rate != data.default_learning_rate:
+		raise WCMIArgsError("error: the generate action doesn't support --learning-rate.")
+	if options.gan_enable_pause != data.default_gan_enable_pause:
+		raise WCMIArgsError("error: the generate action doesn't support --gan-disable-pause.")
+	if options.gan_training_pause_threshold != data.default_gan_training_pause_threshold:
+		raise WCMIArgsError("error: the generate action doesn't support --gan-training-pause-threshold.")
+	if options.pause_min_samples_per_epoch != data.default_pause_min_samples_per_epoch:
+		raise WCMIArgsError("error: the generate action doesn't support --pause-min-samples-per-epoch.")
+	if options.pause_min_epochs != data.default_pause_min_epochs:
+		raise WCMIArgsError("error: the generate action doesn't support --pause-min-epochs.")
+	if options.pause_max_epochs != data.default_pause_max_epochs:
+		raise WCMIArgsError("error: the generate action doesn't support --pause-max-epochs.")
+
+	return wnn.interface.generate(save_data_path=options.save_data, logger=logger)
+
 def get_default_actions(parser=argument_parser):
 	"""
 	Get a tuple of actions and options to pass to them to run for the
 	"default" action.
 	"""
 	return (
+		# Generate random values:
+		("generate", {
+			"save_data":    ("dist/random.csv", "--save-data=dist/random.csv"),
+			"log":          ("dist/log/generate.log",               "--log=dist/log/generate.log"),
+			"log_truncate": (True,                                  "--log-truncate"),
+		}),
+
 		# No reversing:
 		("train", {
 			"dense":        (True,                                  "--dense"),
@@ -730,6 +787,32 @@ def get_default_actions(parser=argument_parser):
 			"load_data":    ("data/4th_dataset_noid.csv",           "--load-data=data/4th_dataset_noid.csv"),
 			"save_data":    ("dist/with_reversed_gan_4th_dataset_gan_predictions.csv", "--save-data=dist/with_reversed_gan_4th_dataset_gan_predictions.csv"),
 			"log":          ("dist/log/with_reversed_gan_run_gan.log", "--log=dist/log/with_reversed_gan_run_gan.log"),
+			"log_truncate": (True,                                  "--log-truncate"),
+		}),
+
+		# Repeat the runs for non-reversed models, but on the randomly generated data.
+		("run", {
+			"dense":        (True,                                  "--dense"),
+			"load_model":   ("dist/dense.pt",                       "--load-model=dist/dense.pt"),
+			"load_data":    ("data/random.csv",                     "--load-data=data/random.csv"),
+			"save_data":    ("dist/predictions_for_random.csv",     "--save-data=dist/predictions_for_random.csv"),
+			"log":          ("dist/log/random_run_dense.log",       "--log=dist/log/random_run_dense.log"),
+			"log_truncate": (True,                                  "--log-truncate"),
+		}),
+		("run", {
+			"gan":          (True,                                  "--gan"),
+			"load_model":   ("dist/gan.pt",                         "--load-model=dist/gan.pt"),
+			"load_data":    ("data/random.csv",                     "--load-data=data/random.csv"),
+			"save_data":    ("dist/predictions_for_random.csv",     "--save-data=dist/predictions_for_random.csv"),
+			"log":          ("dist/log/random_run_gan.log",         "--log=dist/log/random_run_gan.log"),
+			"log_truncate": (True,                                  "--log-truncate"),
+		}),
+		("run", {
+			"gan":          (True,                                  "--gan"),
+			"load_model":   ("dist/with_reversed_gan_gan.pt",       "--load-model=dist/with_reversed_gan_gan.pt"),
+			"load_data":    ("data/random.csv",                     "--load-data=data/random.csv"),
+			"save_data":    ("dist/with_reversed_gan_predictions_for_random.csv", "--save-data=dist/with_reversed_gan_predictions_for_random.csv"),
+			"log":          ("dist/log/with_reversed_gan_random_run_gan.log", "--log=dist/log/with_reversed_gan_random_run_gan.log"),
 			"log_truncate": (True,                                  "--log-truncate"),
 		}),
 
@@ -902,25 +985,6 @@ def default(options, parser=argument_parser, default_actions=default_actions, pr
 
 	logger.info("")
 	logger.info("Done running default actions.")
-
-@add_action
-def generate(options, parser=argument_parser, prog=None, logger=logger):
-	"""
-	Just generate 10,000 rows of random data.
-	"""
-
-	if options.load_data is not None:
-		raise WCMIArgsError("error: the generate action doesn't support --load-data.")
-	#if options.save_data is not None:
-		#raise WCMIArgsError("error: the generate action doesn't support --save-data.")
-	if options.load_model is not None:
-		raise WCMIArgsError("error: the generate action doesn't support --load-model.")
-	if options.save_model is not None:
-		raise WCMIArgsError("error: the generate action doesn't support --save-model.")
-
-	# TODO: other options verification.
-
-	return wnn.interface.generate(save_data_path=options.save_data, logger=logger)
 
 if __name__ == "__main__":
 	import sys

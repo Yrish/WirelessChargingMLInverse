@@ -1164,5 +1164,5 @@ def generate(save_data_path, logger=logger):
 		)
 		for i in range(10000):
 			f.write(
-				",".join("{0:f}".format(zero) for zero in simulation_info.num_sim_inputs * (0.0,)) + ",".join("{0:f}".format(random.randrange(min, max)) for min, max in simulation_info.get_sim_output_ranges()) + "\n",
+				",".join("{0:f}".format(zero) for zero in simulation_info.num_sim_inputs * (0.0,)) + "," + ",".join("{0:f}".format(random.randrange(min, max)) for min, max in simulation_info.get_sim_output_ranges()) + "\n",
 			)

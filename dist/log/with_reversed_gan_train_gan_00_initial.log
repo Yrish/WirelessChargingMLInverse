@@ -1,0 +1,20 @@
+Logging enabled.
+./wcmi.py train --gan --load-reversed-model=dist/reversed_gan.pt --reversed-gan --load-data=data/4th_dataset_noid.csv --save-model=dist/with_reversed_gan_gan_00_initial.pt --save-data=dist/with_reversed_gan_train_gan_bce_00_initial.csv --log=dist/log/with_reversed_gan_train_gan_00_initial.log --log-truncate --num-epochs=1
+device: cpu
+
+Beginning epoch #1/1.
+  Beginning sample #1/6,327 (epoch #1/1).
+  Beginning sample #1,025/6,327 (epoch #1/1).
+  Beginning sample #2,049/6,327 (epoch #1/1).
+  Beginning sample #3,009/6,327 (epoch #1/1).
+  Beginning sample #4,033/6,327 (epoch #1/1).
+  Beginning sample #5,057/6,327 (testing phase) (epoch #1/1).
+  Beginning sample #6,017/6,327 (testing phase) (epoch #1/1).
+Done training epoch #1/1 (mean testing gen, disc_real, disc_gen loss: 22.540907, 0.353175, 10.267127) (mean training gen, disc_real, disc_gen loss: 27.631369, 15.584838, 12.046188) (paused gen, disc: 0, 3721).
+
+Wrote training epoch data to `dist/with_reversed_gan_train_gan_bce_00_initial.csv'.
+
+Saved trained model to `dist/with_reversed_gan_gan_00_initial.pt'.
+
+Done training all epochs.
+Have a good day.

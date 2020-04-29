@@ -1,0 +1,2 @@
+training_mean_discriminator_real_bce_loss,training_mean_discriminator_generated_bce_loss,training_mean_generator_bce_loss,testing_mean_discriminator_real_bce_loss,testing_mean_discriminator_generated_bce_loss,testing_mean_generator_bce_loss,num_training_samples,num_discriminator_training_paused,num_generator_training_paused
+tensor(22.5409),tensor(0.3532),tensor(10.2671),tensor(27.6314),tensor(15.5848),tensor(12.0462),4745,0,3721

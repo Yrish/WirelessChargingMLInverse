@@ -577,7 +577,7 @@ def train(
 
 		# Did the user specify to save MSE errors?
 		if save_data_path is not None:
-			if not reversed:
+			if not reverse:
 				mse_columns = ["is_training", *["mse_{0:s}".format(column) for column in simulation_data.simulation_info.sim_input_names]]
 			else:
 				mse_columns = ["is_training", *["mse_{0:s}".format(column) for column in simulation_data.simulation_info.sim_output_names]]

@@ -1159,10 +1159,10 @@ def generate(save_data_path, logger=logger):
 	simulation_info=simulation.simulation_info
 	import random
 	with open(save_data_path, "w") as f:
-		f.writelines([
-			",".join(simulation_info.sim_input_names + simulation_info.sim_output_names),
-		])
+		f.write(
+			",".join(simulation_info.sim_input_names + simulation_info.sim_output_names) + "\n",
+		)
 		for i in range(10000):
-			f.writelines([
-				",".join("{0:f}".format(zero) for zero in simulation_info.num_sim_inputs * (0.0,)) + ",".join("{0:f}".format(random.randrange(min, max)) for min, max in simulation_info.get_sim_output_ranges()),
-			])
+			f.write(
+				",".join("{0:f}".format(zero) for zero in simulation_info.num_sim_inputs * (0.0,)) + ",".join("{0:f}".format(random.randrange(min, max)) for min, max in simulation_info.get_sim_output_ranges()) + "\n",
+			)

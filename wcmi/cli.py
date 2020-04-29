@@ -136,7 +136,7 @@ def cli(args=None, argv=None, parser=None, logger=logger):
 	action = options.action
 	if action not in actions:
 		raise WCMIArgsError("error: unrecognized action `{0:s}'.  Try passing train, run, or stats.".format(action))
-	return actions[action](options, parser=parser, prog=argv[0], logger=logger)
+	return actions[action](options, parser=parser, args=args, prog=argv[0], logger=logger)
 
 def get_argument_parser(prog=None):
 	"""
@@ -427,7 +427,7 @@ def verify_load_data_options(options):
 		raise WCMIArgsError("error: --load-data .../path/to/data.csv must be specified.")
 
 @add_action
-def train(options, parser=argument_parser, prog=None, logger=logger):
+def train(options, parser=argument_parser, args=None, prog=None, logger=logger):
 	"""
 	Call the train action after some argument verification.
 	"""
@@ -440,14 +440,14 @@ def train(options, parser=argument_parser, prog=None, logger=logger):
 	if options.save_model is None:
 		raise WCMIArgsError("error: the train action requires --save-model.")
 
-	if options.output_keep_out_of_bounds_samples:
-		raise WCMIArgsError("error: the train action doesn't support --output-keep-out-of-bounds-samples.")
-
 	if options.load_reversed_model is not None and not options.gan:
 		raise WCMIArgsError("error: train --dense doesn't support --load-reversed-model.")
 
 	if options.reversed_dense and options.reversed_gan:
 		raise WCMIArgsError("error: train --reversed-dense and --reversed-gan cannot both be specified.")
+
+	if options.output_keep_out_of_bounds_samples:
+		logger.warning("warning: the train action doesn't support --output-keep-out-of-bounds-samples.")
 
 	# Call the action.
 	return wnn.interface.train(
@@ -475,7 +475,7 @@ def train(options, parser=argument_parser, prog=None, logger=logger):
 	)
 
 @add_action
-def run(options, parser=argument_parser, prog=None, logger=logger):
+def run(options, parser=argument_parser, args=None, prog=None, logger=logger):
 	"""
 	Call the run action after some argument verification.
 	"""
@@ -491,33 +491,33 @@ def run(options, parser=argument_parser, prog=None, logger=logger):
 	if options.save_model is not None:
 		raise WCMIArgsError("error: the run action doesn't support --save-model.")
 	if options.load_reversed_model is not None:
-		raise WCMIArgsError("error: the run action doesn't support --load-reversed-model.  It is only used for training.")
+		logger.warning("warning: the run action doesn't support --load-reversed-model.  It is only used for training.")
 
 	if options.reverse:
-		raise WCMIArgsError("error: the run action doesn't support --reverse.  It is read from the saved model.")
+		logger.warning("warning: the run action doesn't support --reverse.  It is read from the saved model.")
 	if options.gan_force_fixed_gen_params:
-		raise WCMIArgsError(
-			"error: the run action doesn't support --gan-force-fixed-gen-params.  run will use fixed GAN generation parameters instead of random noise only if the input CSV data specified them.",
+		logger.warning(
+			"warning: the run action doesn't support --gan-force-fixed-gen-params.  run will use fixed GAN generation parameters instead of random noise only if the input CSV data specified them.",
 		)
 	if options.reversed_dense:
-		raise WCMIArgsError("error: the run action doesn't support --reversed-dense.  It is only used with --load-reversed-model for the train action.")
+		logger.warning("warning: the run action doesn't support --reversed-dense.  It is only used with --load-reversed-model for the train action.")
 	if options.reversed_gan:
-		raise WCMIArgsError("error: the run action doesn't support --reversed-gan.  It is only used with --load-reversed-model for the train action.")
+		logger.warning("warning: the run action doesn't support --reversed-gan.  It is only used with --load-reversed-model for the train action.")
 
 	if options.batch_size != data.default_batch_size:
-		raise WCMIArgsError("error: the run action doesn't support --batch-size.")
+		logger.warning("warning: the run action doesn't support --batch-size.")
 	if options.learning_rate != data.default_learning_rate:
-		raise WCMIArgsError("error: the run action doesn't support --learning-rate.")
+		logger.warning("warning: the run action doesn't support --learning-rate.")
 	if options.gan_enable_pause != data.default_gan_enable_pause:
-		raise WCMIArgsError("error: the run action doesn't support --gan-disable-pause.")
+		logger.warning("warning: the run action doesn't support --gan-disable-pause.")
 	if options.gan_training_pause_threshold != data.default_gan_training_pause_threshold:
-		raise WCMIArgsError("error: the run action doesn't support --gan-training-pause-threshold.")
+		logger.warning("warning: the run action doesn't support --gan-training-pause-threshold.")
 	if options.pause_min_samples_per_epoch != data.default_pause_min_samples_per_epoch:
-		raise WCMIArgsError("error: the run action doesn't support --pause-min-samples-per-epoch.")
+		logger.warning("warning: the run action doesn't support --pause-min-samples-per-epoch.")
 	if options.pause_min_epochs != data.default_pause_min_epochs:
-		raise WCMIArgsError("error: the run action doesn't support --pause-min-epochs.")
+		logger.warning("warning: the run action doesn't support --pause-min-epochs.")
 	if options.pause_max_epochs != data.default_pause_max_epochs:
-		raise WCMIArgsError("error: the run action doesn't support --pause-max-epochs.")
+		logger.warning("warning: the run action doesn't support --pause-max-epochs.")
 
 	# Call the action.
 	return wnn.interface.run(
@@ -531,7 +531,7 @@ def run(options, parser=argument_parser, prog=None, logger=logger):
 	)
 
 @add_action
-def stats(options, parser=argument_parser, prog=None, logger=logger):
+def stats(options, parser=argument_parser, args=None, prog=None, logger=logger):
 	"""
 	Call the run action after some argument verification.
 	"""
@@ -546,37 +546,37 @@ def stats(options, parser=argument_parser, prog=None, logger=logger):
 		raise WCMIArgsError("error: the stats action requires --save-data.")
 
 	if options.load_reversed_model is not None:
-		raise WCMIArgsError("error: the stats action doesn't support --load-reversed-model.")
+		logger.warning("warning: the stats action doesn't support --load-reversed-model.")
 	if options.load_model is not None:
 		raise WCMIArgsError("error: the stats action doesn't support --load-model.")
 	if options.save_model is not None:
 		raise WCMIArgsError("error: the stats action doesn't support --save-model.")
 
 	if options.reverse:
-		raise WCMIArgsError("error: the stats action doesn't support --reverse.")
+		logger.warning("warning: the stats action doesn't support --reverse.")
 	if options.output_keep_out_of_bounds_samples:
-		raise WCMIArgsError("error: the stats action doesn't support --output-keep-out-of-bounds-samples.")
+		logger.warning("warning: the stats action doesn't support --output-keep-out-of-bounds-samples.")
 	if options.gan_force_fixed_gen_params:
-		raise WCMIArgsError("error: the stats action doesn't support --gan-force-fixed-gen-params.")
+		logger.warning("warning: the stats action doesn't support --gan-force-fixed-gen-params.")
 	if options.reversed_dense:
-		raise WCMIArgsError("error: the stats action doesn't support --reversed-dense.  It is only used with --load-reversed-model for the train action.")
+		logger.warning("warning: the stats action doesn't support --reversed-dense.  It is only used with --load-reversed-model for the train action.")
 	if options.reversed_gan:
-		raise WCMIArgsError("error: the stats action doesn't support --reversed-gan.  It is only used with --load-reversed-model for the train action.")
+		logger.warning("warning: the stats action doesn't support --reversed-gan.  It is only used with --load-reversed-model for the train action.")
 
 	if options.batch_size != data.default_batch_size:
-		raise WCMIArgsError("error: the stats action doesn't support --batch-size.")
+		logger.warning("warning: the stats action doesn't support --batch-size.")
 	if options.learning_rate != data.default_learning_rate:
-		raise WCMIArgsError("error: the stats action doesn't support --learning-rate.")
+		logger.warning("warning: the stats action doesn't support --learning-rate.")
 	if options.gan_enable_pause != data.default_gan_enable_pause:
-		raise WCMIArgsError("error: the stats action doesn't support --gan-disable-pause.")
+		logger.warning("warning: the stats action doesn't support --gan-disable-pause.")
 	if options.gan_training_pause_threshold != data.default_gan_training_pause_threshold:
-		raise WCMIArgsError("error: the stats action doesn't support --gan-training-pause-threshold.")
+		logger.warning("warning: the stats action doesn't support --gan-training-pause-threshold.")
 	if options.pause_min_samples_per_epoch != data.default_pause_min_samples_per_epoch:
-		raise WCMIArgsError("error: the stats action doesn't support --pause-min-samples-per-epoch.")
+		logger.warning("warning: the stats action doesn't support --pause-min-samples-per-epoch.")
 	if options.pause_min_epochs != data.default_pause_min_epochs:
-		raise WCMIArgsError("error: the stats action doesn't support --pause-min-epochs.")
+		logger.warning("warning: the stats action doesn't support --pause-min-epochs.")
 	if options.pause_max_epochs != data.default_pause_max_epochs:
-		raise WCMIArgsError("error: the stats action doesn't support --pause-max-epochs.")
+		logger.warning("warning: the stats action doesn't support --pause-max-epochs.")
 
 	# Call the action.
 	return wnn.interface.stats(
@@ -584,7 +584,7 @@ def stats(options, parser=argument_parser, prog=None, logger=logger):
 	)
 
 @add_action
-def generate(options, parser=argument_parser, prog=None, logger=logger):
+def generate(options, parser=argument_parser, args=None, prog=None, logger=logger):
 	"""
 	Just generate 10,000 rows of random data.
 	"""
@@ -598,37 +598,37 @@ def generate(options, parser=argument_parser, prog=None, logger=logger):
 	if options.load_data is not None:
 		raise WCMIArgsError("error: the generate action doesn't support --load-data.")
 	if options.load_reversed_model is not None:
-		raise WCMIArgsError("error: the generate action doesn't support --load-reversed-model.")
+		logger.warning("warning: the generate action doesn't support --load-reversed-model.")
 	if options.load_model is not None:
 		raise WCMIArgsError("error: the generate action doesn't support --load-model.")
 	if options.save_model is not None:
 		raise WCMIArgsError("error: the generate action doesn't support --save-model.")
 
 	if options.reverse:
-		raise WCMIArgsError("error: the generate action doesn't support --reverse.")
+		logger.warning("warning: the generate action doesn't support --reverse.")
 	if options.output_keep_out_of_bounds_samples:
-		raise WCMIArgsError("error: the generate action doesn't support --output-keep-out-of-bounds-samples.")
+		logger.warning("warning: the generate action doesn't support --output-keep-out-of-bounds-samples.")
 	if options.gan_force_fixed_gen_params:
-		raise WCMIArgsError("error: the generate action doesn't support --gan-force-fixed-gen-params.")
+		logger.warning("warning: the generate action doesn't support --gan-force-fixed-gen-params.")
 	if options.reversed_dense:
-		raise WCMIArgsError("error: the generate action doesn't support --reversed-dense.  It is only used with --load-reversed-model for the train action.")
+		logger.warning("warning: the generate action doesn't support --reversed-dense.  It is only used with --load-reversed-model for the train action.")
 	if options.reversed_gan:
-		raise WCMIArgsError("error: the generate action doesn't support --reversed-gan.  It is only used with --load-reversed-model for the train action.")
+		logger.warning("warning: the generate action doesn't support --reversed-gan.  It is only used with --load-reversed-model for the train action.")
 
 	if options.batch_size != data.default_batch_size:
-		raise WCMIArgsError("error: the generate action doesn't support --batch-size.")
+		logger.warning("warning: the generate action doesn't support --batch-size.")
 	if options.learning_rate != data.default_learning_rate:
-		raise WCMIArgsError("error: the generate action doesn't support --learning-rate.")
+		logger.warning("warning: the generate action doesn't support --learning-rate.")
 	if options.gan_enable_pause != data.default_gan_enable_pause:
-		raise WCMIArgsError("error: the generate action doesn't support --gan-disable-pause.")
+		logger.warning("warning: the generate action doesn't support --gan-disable-pause.")
 	if options.gan_training_pause_threshold != data.default_gan_training_pause_threshold:
-		raise WCMIArgsError("error: the generate action doesn't support --gan-training-pause-threshold.")
+		logger.warning("warning: the generate action doesn't support --gan-training-pause-threshold.")
 	if options.pause_min_samples_per_epoch != data.default_pause_min_samples_per_epoch:
-		raise WCMIArgsError("error: the generate action doesn't support --pause-min-samples-per-epoch.")
+		logger.warning("warning: the generate action doesn't support --pause-min-samples-per-epoch.")
 	if options.pause_min_epochs != data.default_pause_min_epochs:
-		raise WCMIArgsError("error: the generate action doesn't support --pause-min-epochs.")
+		logger.warning("warning: the generate action doesn't support --pause-min-epochs.")
 	if options.pause_max_epochs != data.default_pause_max_epochs:
-		raise WCMIArgsError("error: the generate action doesn't support --pause-max-epochs.")
+		logger.warning("warning: the generate action doesn't support --pause-max-epochs.")
 
 	return wnn.interface.generate(save_data_path=options.save_data, logger=logger)
 
@@ -886,7 +886,7 @@ def get_default_actions(parser=argument_parser):
 default_actions = get_default_actions()
 
 @add_action
-def default(options, parser=argument_parser, default_actions=default_actions, prog=None, logger=logger):
+def default(options, default_actions=default_actions, parser=argument_parser, args=None, prog=None, logger=logger):
 	"""
 	Run a typical sequence of train, run, and stats commands.
 	"""
@@ -913,6 +913,12 @@ def default(options, parser=argument_parser, default_actions=default_actions, pr
 	except (TypeError, ValueError, AttributeError, KeyError) as ex:
 		raise ex
 
+	# Get arguments after the action.
+	if args[:1] == ["default"]:
+		args_post_action = args[1:]
+	else:
+		args_post_action = args[:]
+
 	# Prepare to run each action.
 	is_python_3_8 = True
 	try:
@@ -921,7 +927,7 @@ def default(options, parser=argument_parser, default_actions=default_actions, pr
 	except AttributeError as ex:
 		is_python_3_8 = False
 	if is_python_3_8:
-		def format_action(action, action_options):
+		def format_action(action, action_options, args_post_action=args_post_action):
 			"""
 			Return a string showing the command to run without prog, e.g.
 			"train --dense --load-data=data/4th_dataset_noid.csv --save-model=dist/dense.pt --save-data=dist/4th_dataset_dense_mse.csv"
@@ -932,9 +938,9 @@ def default(options, parser=argument_parser, default_actions=default_actions, pr
 			or
 			"train --load-data=dist/4th_dataset_dense_predictions.csv --save-data=dist/stats"
 			"""
-			return "{0:s} {1:s}".format(action, shlex.join(flag for option_key, (option_value, flag) in action_options.items()))
+			return "{0:s} {1:s}".format(action, shlex.join(flag for option_key, (option_value, flag) in action_options.items()), " ".join(shlex.quote(arg) for arg in args_post_action))
 	else:
-		def format_action(action, action_options):
+		def format_action(action, action_options, args_post_action=args_post_action):
 			"""
 			Return a string showing the command to run without prog, e.g.
 			"train --dense --load-data=data/4th_dataset_noid.csv --save-model=dist/dense.pt --save-data=dist/4th_dataset_dense_mse.csv"
@@ -945,9 +951,9 @@ def default(options, parser=argument_parser, default_actions=default_actions, pr
 			or
 			"train --load-data=dist/4th_dataset_dense_predictions.csv --save-data=dist/stats"
 			"""
-			return "{0:s} {1:s}".format(action, " ".join(shlex.quote(flag) for option_key, (option_value, flag) in action_options.items()))
+			return "{0:s} {1:s} {2:s}".format(action, " ".join(shlex.quote(flag) for option_key, (option_value, flag) in action_options.items()), " ".join(shlex.quote(arg) for arg in args_post_action))
 
-	def run_action(action, action_options, prog=prog, logger=logger):
+	def run_action(action, action_options, args_post_action=args_post_action, prog=prog, logger=logger):
 		"""Run an individual action with options."""
 		# TODO: fix log handling, because the default log options are ignored
 		# when calling the actions directly.  As a workaround, for now just use
@@ -963,15 +969,15 @@ def default(options, parser=argument_parser, default_actions=default_actions, pr
 				logger=logger,
 			)
 		else:
-			completed_process = subprocess.run([prog, action] + [flag for option_key, (option_value, flag) in action_options.items()])
+			completed_process = subprocess.run([prog, action] + [flag for option_key, (option_value, flag) in action_options.items()] + args_post_action)
 			if completed_process.returncode != 0:
-				raise WCMIError("error: default action: {0:s} {1:s} returned nonzero code {2:d}.".format(prog, format_action(action, action_options), completed_process.returncode))
+				raise WCMIError("error: default action: {0:s} {1:s} returned nonzero code {2:d}.".format(prog, format_action(action, action_options, args_post_action=args_post_action), completed_process.returncode))
 	def run_actions(actions=default_actions, run_action=run_action, prog=prog, logger=logger):
 		"""Print the action to run and run it for each action."""
 		last_result = None
 		for action, action_options in actions:
-			logger.info("{0:s} {1:s}".format(prog, format_action(action, action_options)))
-			last_result = run_action(action, action_options, prog=prog, logger=logger)
+			logger.info("{0:s} {1:s}".format(prog, format_action(action, action_options, args_post_action=args_post_action)))
+			last_result = run_action(action, action_options, args_post_action=args_post_action, prog=prog, logger=logger)
 		return last_result
 
 	# Now run each action.

@@ -11,15 +11,17 @@ import logging
 import logging.handlers
 import os.path
 import shlex
+import subprocess
 import sys
 import textwrap
+import time
 
 if True:
 	# Let wcmi/cli.py be callable in a standalone directory.
 	import sys, os.path
 	sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from wcmi.exception import WCMIArgsError
+from wcmi.exception import WCMIError, WCMIArgsError
 from wcmi.log import logger
 
 import wcmi.log
@@ -134,7 +136,7 @@ def cli(args=None, argv=None, parser=None, logger=logger):
 	action = options.action
 	if action not in actions:
 		raise WCMIArgsError("error: unrecognized action `{0:s}'.  Try passing train, run, or stats.".format(action))
-	return actions[action](options, parser=parser, logger=logger)
+	return actions[action](options, parser=parser, prog=argv[0], logger=logger)
 
 def get_argument_parser(prog=None):
 	"""
@@ -425,7 +427,7 @@ def verify_load_data_options(options):
 		raise WCMIArgsError("error: --load-data .../path/to/data.csv must be specified.")
 
 @add_action
-def train(options, parser=argument_parser, logger=logger):
+def train(options, parser=argument_parser, prog=None, logger=logger):
 	"""
 	Call the train action after some argument verification.
 	"""
@@ -473,7 +475,7 @@ def train(options, parser=argument_parser, logger=logger):
 	)
 
 @add_action
-def run(options, parser=argument_parser, logger=logger):
+def run(options, parser=argument_parser, prog=None, logger=logger):
 	"""
 	Call the run action after some argument verification.
 	"""
@@ -529,7 +531,7 @@ def run(options, parser=argument_parser, logger=logger):
 	)
 
 @add_action
-def stats(options, parser=argument_parser, logger=logger):
+def stats(options, parser=argument_parser, prog=None, logger=logger):
 	"""
 	Call the run action after some argument verification.
 	"""
@@ -668,10 +670,14 @@ def get_default_actions(parser=argument_parser):
 default_actions = get_default_actions()
 
 @add_action
-def default(options, parser=argument_parser, default_actions=default_actions, logger=logger):
+def default(options, parser=argument_parser, default_actions=default_actions, prog=None, logger=logger):
 	"""
 	Run a typical sequence of train, run, and stats commands.
 	"""
+
+	# Verify arguments.
+	if prog is None:
+		raise WCMIError("error: the `default' action was called without the `prog' argument set.")
 
 	# Verify command-line arguments.
 	verify_common_options(options)
@@ -681,7 +687,7 @@ def default(options, parser=argument_parser, default_actions=default_actions, lo
 		for option_key, (option_value, flag) in action_options.items():
 			if option_key in options:
 				if getattr(options, option_key) != parser.get_default(option_key):
-					raise WCMIArgsError("error: the `default' action provides the flag `{0:s}', but a flag for the target option was passed.".format(flag))
+					raise WCMIArgsError("error: the `default' action provides the flag `{0:s}', but a flag for the same option this flag determines was passed.".format(flag))
 
 	# Get non-default options to call each action with in addition to the
 	# action-specific ones.
@@ -725,37 +731,47 @@ def default(options, parser=argument_parser, default_actions=default_actions, lo
 			"""
 			return "{0:s} {1:s}".format(action, " ".join(shlex.quote(flag) for option_key, (option_value, flag) in action_options.items()))
 
-	def run_action(action, action_options, logger=logger):
+	def run_action(action, action_options, prog=prog, logger=logger):
 		"""Run an individual action with options."""
-		return actions[action](
-			argparse.Namespace(**{
-				**options_dict,
-				**{option_key: option_value for option_key, (option_value, flag) in action_options.items()},
-			}),
-			logger=logger,
-		)
-	def run_actions(actions=default_actions, run_action=run_action, logger=logger):
+		# TODO: fix log handling, because the default log options are ignored
+		# when calling the actions directly.  As a workaround, for now just use
+		# subprocess.run().
+		if False:
+			return actions[action](
+				argparse.Namespace(**{
+					**options_dict,
+					**{option_key: option_value for option_key, (option_value, flag) in action_options.items()},
+				}),
+				parser=argument_parser,
+				prog=prog,
+				logger=logger,
+			)
+		else:
+			completed_process = subprocess.run([prog, action] + [flag for option_key, (option_value, flag) in action_options.items()])
+			if completed_process.returncode != 0:
+				raise WCMIError("error: default action: {0:s} {1:s} returned nonzero code {2:d}.".format(prog, format_action(action, action_options), completed_process.returncode))
+	def run_actions(actions=default_actions, run_action=run_action, prog=prog, logger=logger):
 		"""Print the action to run and run it for each action."""
 		last_result = None
 		for action, action_options in actions:
-			logger.info(format_action(action, action_options))
-			last_result = run_action(action, action_options, logger=logger)
+			logger.info("{0:s} {1:s}".format(prog, format_action(action, action_options)))
+			last_result = run_action(action, action_options, prog=prog, logger=logger)
 		return last_result
 
 	# Now run each action.
-	logger.info("Will run the following actions:")
+	logger.info("Will run the following actions in 5 seconds:")
 	for action, action_options in default_actions:
-		logger.info("  {0:s}".format(format_action(action, action_options)))
+		logger.info("  {0:s} {1:s}".format(prog, format_action(action, action_options)))
 	logger.info("")
+	time.sleep(5)
 
-	raise NotImplementedError("FIXME: the `default' action currently doesn't write log files; disabling the `default' action until this bug is fixed.")
-	run_actions(default_actions, logger=logger)
+	run_actions(default_actions, prog=prog, logger=logger)
 
 	logger.info("")
 	logger.info("Done running default actions.")
 
 @add_action
-def generate(options, parser=argument_parser, logger=logger):
+def generate(options, parser=argument_parser, prog=None, logger=logger):
 	"""
 	Just generate 10,000 rows of random data.
 	"""

@@ -1144,10 +1144,25 @@ def run(
 	simulation_data.save(output)
 	logger.info("Wrote CSV output with predictions to `{0:s}'.".format(save_data_path))
 
-def stats(logger=logger):
+def stats(save_data_path, logger=logger):
 	"""
 	(To be documented...)
 	"""
 	logger.error("(To be implemented...)")
 	raise NotImplementedError("error: stats: the stats action is not yet implemented.")
 	pass
+
+def generate(save_data_path, logger=logger):
+	"""
+	TODO: document and clean up.
+	"""
+	simulation_info=simulation.simulation_info
+	import random
+	with open(save_data_path, "w") as f:
+		f.writelines([
+			",".join(simulation_info.sim_input_names + simulation_info.sim_output_names),
+		])
+		for i in range(10000):
+			f.writelines([
+				",".join("{0:f}".format(zero) for zero in simulation_info.num_sim_inputs * (0.0,)) + ",".join("{0:f}".format(random.randrange(min, max)) for min, max in simulation_info.get_sim_output_ranges()),
+			])

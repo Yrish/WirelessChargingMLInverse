@@ -697,6 +697,25 @@ def default(options, parser=argument_parser, default_actions=default_actions, lo
 	logger.info("")
 	logger.info("Done running default actions.")
 
+@add_action
+def generate(options, parser=argument_parser, logger=logger):
+	"""
+	Just generate 10,000 rows of random data.
+	"""
+
+	if options.load_data is not None:
+		raise WCMIArgsError("error: the generate action doesn't support --load-data.")
+	#if options.save_data is not None:
+		#raise WCMIArgsError("error: the generate action doesn't support --save-data.")
+	if options.load_model is not None:
+		raise WCMIArgsError("error: the generate action doesn't support --load-model.")
+	if options.save_model is not None:
+		raise WCMIArgsError("error: the generate action doesn't support --save-model.")
+
+	# TODO: other options verification.
+
+	return wnn.interface.generate(save_data_path=options.save_data, logger=logger)
+
 if __name__ == "__main__":
 	import sys
 	main(sys.argv[:])

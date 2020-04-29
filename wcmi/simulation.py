@@ -608,7 +608,7 @@ class SimulationData():
 		new_column_names = sorted([name for name in column_names if name.lower().strip() not in liberal_column_names], key=lambda: liberal_column_names.index()) + [name for name in column_names if name.lower().strip() in liberal_column_names]
 		self.data.reindex(new_column_names)
 
-	def save(self, data=None, save_data_path=None, verify_gan_n=None, optional_gan_n=None, gan_n=None):
+	def save(self, data=None, save_data_path=None, reverse=False, verify_gan_n=None, optional_gan_n=None, gan_n=None):
 		"""
 		Write self.data, a pandas frame, to a CSV file.
 
@@ -636,7 +636,10 @@ class SimulationData():
 
 		# Fail if there are too few columns (< 19).
 		num_csv_columns = len(data.columns)
-		min_needed_columns = self.simulation_info.num_sim_inputs + self.simulation_info.num_sim_outputs + self.simulation_info.num_sim_inputs
+		if not reverse:
+			min_needed_columns = self.simulation_info.num_sim_inputs + self.simulation_info.num_sim_outputs + self.simulation_info.num_sim_inputs
+		else:
+			min_needed_columns = self.simulation_info.num_sim_inputs + self.simulation_info.num_sim_outputs + self.simulation_info.num_sim_outputs
 		if num_csv_columns < min_needed_columns:
 			raise WCMIError("error: SimulationData.save(): there are fewer columns than the number needed: {0:d} < {1:d}".format(num_csv_columns, min_needed_columns))
 

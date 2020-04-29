@@ -26,7 +26,9 @@ import wcmi.simulation as simulation
 
 def train(
 	use_gan=True, load_model_path=None, save_model_path=None,
-	load_data_path=None, save_data_path=None, gan_n=gan.default_gan_n,
+	load_data_path=None, save_data_path=None,
+	reverse=False, load_reversed_model_path=None, reversed_use_gan=False,
+	gan_n=gan.default_gan_n,
 	num_epochs=data.default_num_epochs,
 	status_every_epoch=data.default_status_every_epoch,
 	status_every_sample=data.default_status_every_sample,
@@ -101,7 +103,8 @@ def train(
 
 	# Get the input and labels (target).
 	num_sim_in_columns     = simulation_data.simulation_info.num_sim_inputs
-	num_sim_in_out_columns = num_sim_in_columns + simulation_data.simulation_info.num_sim_outputs
+	num_sim_out_columns    = simulation_data.simulation_info.num_sim_outputs
+	num_sim_in_out_columns = num_sim_in_columns + num_sim_out_columns
 
 	#npdata = simulation_data.data.values[:, :num_sim_in_out_columns]  # (No need for a numpy copy.)
 	all_data = torch.Tensor(simulation_data.data.values[:, :num_sim_in_out_columns]).to(data.device)
@@ -121,6 +124,25 @@ def train(
 	input_mins  = torch.tensor(np.apply_along_axis(np.min,  axis=0, arr=all_npinput))
 	input_maxs  = torch.tensor(np.apply_along_axis(np.max,  axis=0, arr=all_npinput))
 
+	if not reverse:
+		which_input_means  = input_means
+		which_input_stds   = input_stds
+		which_input_mins   = input_mins
+		which_input_maxs   = input_maxs
+		which_label_means  = label_means
+		which_label_stds   = label_stds
+		which_label_mins   = label_mins
+		which_label_maxs   = label_maxs
+	else:
+		which_input_means  = label_means
+		which_input_stds   = label_stds
+		which_input_mins   = label_mins
+		which_input_maxs   = label_maxs
+		which_label_means  = input_means
+		which_label_stds   = input_stds
+		which_label_mins   = input_mins
+		which_label_maxs   = input_maxs
+
 	# Load the model.
 	#
 	# Optionally, the model might be randomly initialized if it hasn't been
@@ -131,19 +153,72 @@ def train(
 		load_model_path=load_model_path,
 		save_model_path=save_model_path,
 		auto_load_model=True,
-		population_mean_in =input_means if not use_gan else [input_means, label_means],
-		population_std_in  =input_stds  if not use_gan else [input_stds,  label_stds],
-		population_min_in  =input_mins  if not use_gan else [input_mins,  label_mins],
-		population_max_in  =input_maxs  if not use_gan else [input_maxs,  label_maxs],
-		population_mean_out=label_means,
-		population_std_out =label_stds,
-		population_min_out =label_mins,
-		population_max_out =label_maxs,
+		reverse=reverse,
+		population_mean_in =which_input_means if not use_gan else [which_input_means, which_label_means],
+		population_std_in  =which_input_stds  if not use_gan else [which_input_stds,  which_label_stds],
+		population_min_in  =which_input_mins  if not use_gan else [which_input_mins,  which_label_mins],
+		population_max_in  =which_input_maxs  if not use_gan else [which_input_maxs,  which_label_maxs],
+		population_mean_out=which_label_means,
+		population_std_out =which_label_stds,
+		population_min_out =which_label_mins,
+		population_max_out =which_label_maxs,
 		standardize_bounds_multiple=use_gan,
 		**mdl_kwargs,
 	)
 	# If CUDA is available, move the model to the GPU.
 	model = model.to(data.device)
+
+	# Make sure we're not trying to load an additional reversed model without GAN:
+	if load_reversed_model_path is not None and not use_gan:
+		raise WCMIError("error: train --dense doesn't support --load-reversed-model.")
+
+	# Load a reversed model?
+	if load_reversed_model_path is None:
+		reversed_model = None
+
+		reversed_mdl = None
+		reversed_gan_n = None
+	else:
+		# For convenience, but these will be loaded:
+		if not reverse:
+			rev_input_means   = label_means
+			rev_input_stds    = label_stds
+			rev_input_min_in  = label_mins
+			rev_input_max_in  = label_maxs
+			rev_output_means  = input_means
+			rev_output_stds   = input_stds
+			rev_output_min_in = input_mins
+			rev_output_max_in = input_maxs
+		else:
+			# Twice reversing.
+			rev_input_means   = input_means
+			rev_input_stds    = input_stds
+			rev_input_min_in  = input_mins
+			rev_input_max_in  = input_maxs
+			rev_output_means  = label_means
+			rev_output_stds   = label_stds
+			rev_output_min_in = label_mins
+			rev_output_max_in = label_maxs
+		reversed_mdl        = gan.GAN if reversed_use_gan else dense.Dense
+		# Load gan_n from the reversed model.
+		#reversed_mdl_kwargs = {'gan_n': reversed_gan_n} if reversed_gan_n else {}
+		reversed_model = mdl(
+			load_model_path=load_reversed_model_path,
+			save_model_path=None,
+			auto_load_model=True,
+			# Do not specify these: they will be loaded from the model.
+			#reverse=not reverse,
+			#population_mean_in =rev_input_means if not use_gan else [rev_input_means, rev_label_means],
+			#population_std_in  =rev_input_stds  if not use_gan else [rev_input_stds,  rev_label_stds],
+			#population_min_in  =rev_input_mins  if not use_gan else [rev_input_mins,  rev_label_mins],
+			#population_max_in  =rev_input_maxs  if not use_gan else [rev_input_maxs,  rev_label_maxs],
+			#population_mean_out=rev_label_means,
+			#population_std_out =rev_label_stds,
+			#population_min_out =rev_label_mins,
+			#population_max_out =rev_label_maxs,
+			**mdl_kwargs,
+		)
+		reversed_gan_n = reversed_model.gan_n if reversed_use_gan else None
 
 	# Split data into training data and test data.  The test data will be
 	# invisible during the training (except to report accuracies).
@@ -200,8 +275,14 @@ def train(
 
 		# After each epoch, set the corresponding element in this array to the
 		# calculated MSE accuracy.
-		epoch_training_mse = torch.zeros((num_epochs,num_sim_in_columns,), device=data.device)
-		epoch_testing_mse = torch.zeros((num_epochs,num_sim_in_columns,), device=data.device)
+		#epoch_training_mse = torch.zeros((num_epochs,num_sim_in_columns,), device=data.device)
+		#epoch_testing_mse = torch.zeros((num_epochs,num_sim_in_columns,), device=data.device)
+		if not reverse:
+			epoch_training_mse = torch.zeros((num_epochs,num_sim_in_columns,), device=data.device)
+			epoch_testing_mse = torch.zeros((num_epochs,num_sim_in_columns,), device=data.device)
+		else:
+			epoch_training_mse = torch.zeros((num_epochs,num_sim_out_columns,), device=data.device)
+			epoch_testing_mse = torch.zeros((num_epochs,num_sim_out_columns,), device=data.device)
 
 		# Define the loss function and the optimizer.
 		loss_function = nn.MSELoss()
@@ -236,8 +317,12 @@ def train(
 			training_data = training_data[torch.randperm(training_data.size()[0])].to(data.device)
 
 			# Clear the error tensors for this epoch.
-			current_epoch_testing_errors = torch.zeros(testing_labels.shape, out=current_epoch_testing_errors, device=data.device, requires_grad=False)
-			current_epoch_training_errors = torch.zeros(training_labels.shape, out=current_epoch_training_errors, device=data.device, requires_grad=False)
+			if not reverse:
+				current_epoch_testing_errors = torch.zeros(testing_labels.shape, out=current_epoch_testing_errors, device=data.device, requires_grad=False)
+				current_epoch_training_errors = torch.zeros(training_labels.shape, out=current_epoch_training_errors, device=data.device, requires_grad=False)
+			else:
+				current_epoch_testing_errors = torch.zeros(testing_input.shape, out=current_epoch_testing_errors, device=data.device, requires_grad=False)
+				current_epoch_training_errors = torch.zeros(training_input.shape, out=current_epoch_training_errors, device=data.device, requires_grad=False)
 
 			# Zero the gradient.
 			optimizer.zero_grad()
@@ -273,14 +358,21 @@ def train(
 				batch_labels = training_labels[batch_slice]
 
 				# Forward pass.
-				batch_output = model(batch_input)
-				loss = loss_function(batch_output, batch_labels)
+				if not reverse:
+					batch_output = model(batch_input)
+					loss = loss_function(batch_output, batch_labels)
+				else:
+					batch_output = model(batch_labels)
+					loss = loss_function(batch_output, batch_input)
 
 				if substatus_enabled:
 					logger.info("    MSE loss, mean of columns: {0:,f}".format(loss.item()))
 
 				# Record the errors for this batch.
-				current_epoch_training_errors[batch_slice] = batch_output.detach() - batch_labels.detach()
+				if not reverse:
+					current_epoch_training_errors[batch_slice] = batch_output.detach() - batch_labels.detach()
+				else:
+					current_epoch_training_errors[batch_slice] = batch_output.detach() - batch_input.detach()
 
 				# Backpropogate to calculate the gradient and then optimize to
 				# update the weights (parameters).
@@ -332,14 +424,21 @@ def train(
 					batch_labels = testing_labels[batch_slice]
 
 					# Forward pass.
-					batch_output = model(batch_input)
-					loss = loss_function(batch_output, batch_labels)
+					if not reverse:
+						batch_output = model(batch_input)
+						loss = loss_function(batch_output, batch_labels)
+					else:
+						batch_output = model(batch_labels)
+						loss = loss_function(batch_output, batch_input)
 
 					if substatus_enabled:
 						logger.info("    MSE loss, mean of columns: {0:,f}".format(loss.item()))
 
 					# Record the errors for this batch.
-					current_epoch_testing_errors[batch_slice] = batch_output.detach() - batch_labels.detach()
+					if not reverse:
+						current_epoch_testing_errors[batch_slice] = batch_output.detach() - batch_labels.detach()
+					else:
+						current_epoch_testing_errors[batch_slice] = batch_output.detach() - batch_input.detach()
 
 				# Calculate the MSE for each prediction column (7-element vector),
 				# then assign it to epoch_mse_errors
@@ -369,6 +468,7 @@ def train(
 		last_training_mse = epoch_training_mse[-1]
 
 		all_nplabels = all_labels.numpy()
+		all_npinput  = all_input.numpy()
 
 		logger.info("")
 		logger.info("Done training last epoch.  Preparing statistics...")
@@ -391,25 +491,47 @@ def train(
 			else:
 				return fmt
 
-		stat_fmts = (
-			(False, "", None, None),
-			(False, "Last testing MSE   (norm) (mean) : {{0:s}} ({{1:{0:s},f}}) ({{2:{0:s},f}})", last_testing_mse, None),
-			(True,  "Last testing RMSE  (norm) (mean) : {{0:s}} ({{1:{0:s},f}}) ({{2:{0:s},f}})", last_testing_mse.sqrt(), None),
-			(False, "Last training MSE  (norm) (mean) : {{0:s}} ({{1:{0:s},f}}) ({{2:{0:s},f}})", last_training_mse, None),
-			(False, "Last training RMSE (norm) (mean) : {{0:s}} ({{1:{0:s},f}}) ({{2:{0:s},f}})", last_training_mse.sqrt(), None),
-			(False, "", None, None),
-			(False, "Label column names               : {{0:s}}", None, simulation_data.simulation_info.sim_input_names),
-			(False, "", None, None),
-			(False, "All labels mean    (norm) (mean) : {{0:s}} ({{1:{0:s},f}}) ({{2:{0:s},f}})", all_labels.mean(0), None),
-			(False, "All labels var     (norm) (mean) : {{0:s}} ({{1:{0:s},f}}) ({{2:{0:s},f}})", all_labels.var(0), None),
-			(True,  "All labels stddev  (norm) (mean) : {{0:s}} ({{1:{0:s},f}}) ({{2:{0:s},f}})", all_labels.std(0), None),
-			(False, "", None, None),
-			(False, "All labels min     (norm) (mean) : {{0:s}} ({{1:{0:s},f}}) ({{2:{0:s},f}})", torch.Tensor(np.quantile(all_nplabels, 0, 0)), None),
-			(False, "...1st quartile    (norm) (mean) : {{0:s}} ({{1:{0:s},f}}) ({{2:{0:s},f}})", torch.Tensor(np.quantile(all_nplabels, 0.25, 0)), None),
-			(False, "All labels median  (norm) (mean) : {{0:s}} ({{1:{0:s},f}}) ({{2:{0:s},f}})", torch.Tensor(np.quantile(all_nplabels, 0.5, 0)), None),
-			(False, "...3rd quartile    (norm) (mean) : {{0:s}} ({{1:{0:s},f}}) ({{2:{0:s},f}})", torch.Tensor(np.quantile(all_nplabels, 0.75, 0)), None),
-			(False, "All labels max     (norm) (mean) : {{0:s}} ({{1:{0:s},f}}) ({{2:{0:s},f}})", torch.Tensor(np.quantile(all_nplabels, 1, 0)), None),
-		)
+		if not reverse:
+			stat_fmts = (
+				(False, "", None, None),
+				(False, "Last testing MSE   (norm) (mean) : {{0:s}} ({{1:{0:s},f}}) ({{2:{0:s},f}})", last_testing_mse, None),
+				(True,  "Last testing RMSE  (norm) (mean) : {{0:s}} ({{1:{0:s},f}}) ({{2:{0:s},f}})", last_testing_mse.sqrt(), None),
+				(False, "Last training MSE  (norm) (mean) : {{0:s}} ({{1:{0:s},f}}) ({{2:{0:s},f}})", last_training_mse, None),
+				(False, "Last training RMSE (norm) (mean) : {{0:s}} ({{1:{0:s},f}}) ({{2:{0:s},f}})", last_training_mse.sqrt(), None),
+				(False, "", None, None),
+				(False, "Label column names               : {{0:s}}", None, simulation_data.simulation_info.sim_input_names),
+				(False, "", None, None),
+				(False, "All labels mean    (norm) (mean) : {{0:s}} ({{1:{0:s},f}}) ({{2:{0:s},f}})", all_labels.mean(0), None),
+				(False, "All labels var     (norm) (mean) : {{0:s}} ({{1:{0:s},f}}) ({{2:{0:s},f}})", all_labels.var(0), None),
+				(True,  "All labels stddev  (norm) (mean) : {{0:s}} ({{1:{0:s},f}}) ({{2:{0:s},f}})", all_labels.std(0), None),
+				(False, "", None, None),
+				(False, "All labels min     (norm) (mean) : {{0:s}} ({{1:{0:s},f}}) ({{2:{0:s},f}})", torch.Tensor(np.quantile(all_nplabels, 0, 0)), None),
+				(False, "...1st quartile    (norm) (mean) : {{0:s}} ({{1:{0:s},f}}) ({{2:{0:s},f}})", torch.Tensor(np.quantile(all_nplabels, 0.25, 0)), None),
+				(False, "All labels median  (norm) (mean) : {{0:s}} ({{1:{0:s},f}}) ({{2:{0:s},f}})", torch.Tensor(np.quantile(all_nplabels, 0.5, 0)), None),
+				(False, "...3rd quartile    (norm) (mean) : {{0:s}} ({{1:{0:s},f}}) ({{2:{0:s},f}})", torch.Tensor(np.quantile(all_nplabels, 0.75, 0)), None),
+				(False, "All labels max     (norm) (mean) : {{0:s}} ({{1:{0:s},f}}) ({{2:{0:s},f}})", torch.Tensor(np.quantile(all_nplabels, 1, 0)), None),
+			)
+		else:
+			stat_fmts = (
+				(False, "", None, None),
+				(False, "Last testing MSE   (norm) (mean) : {{0:s}} ({{1:{0:s},f}}) ({{2:{0:s},f}})", last_testing_mse, None),
+				(True,  "Last testing RMSE  (norm) (mean) : {{0:s}} ({{1:{0:s},f}}) ({{2:{0:s},f}})", last_testing_mse.sqrt(), None),
+				(False, "Last training MSE  (norm) (mean) : {{0:s}} ({{1:{0:s},f}}) ({{2:{0:s},f}})", last_training_mse, None),
+				(False, "Last training RMSE (norm) (mean) : {{0:s}} ({{1:{0:s},f}}) ({{2:{0:s},f}})", last_training_mse.sqrt(), None),
+				(False, "", None, None),
+				(False, "Label column names               : {{0:s}}", None, simulation_data.simulation_info.sim_output_names),
+				(False, "", None, None),
+				(False, "(Reversed model: labels are simulation outputs, not inputs.)", None, None),
+				(False, "All labels mean    (norm) (mean) : {{0:s}} ({{1:{0:s},f}}) ({{2:{0:s},f}})", all_input.mean(0), None),
+				(False, "All labels var     (norm) (mean) : {{0:s}} ({{1:{0:s},f}}) ({{2:{0:s},f}})", all_input.var(0), None),
+				(True,  "All labels stddev  (norm) (mean) : {{0:s}} ({{1:{0:s},f}}) ({{2:{0:s},f}})", all_input.std(0), None),
+				(False, "", None, None),
+				(False, "All labels min     (norm) (mean) : {{0:s}} ({{1:{0:s},f}}) ({{2:{0:s},f}})", torch.Tensor(np.quantile(all_npinput, 0, 0)), None),
+				(False, "...1st quartile    (norm) (mean) : {{0:s}} ({{1:{0:s},f}}) ({{2:{0:s},f}})", torch.Tensor(np.quantile(all_npinput, 0.25, 0)), None),
+				(False, "All labels median  (norm) (mean) : {{0:s}} ({{1:{0:s},f}}) ({{2:{0:s},f}})", torch.Tensor(np.quantile(all_npinput, 0.5, 0)), None),
+				(False, "...3rd quartile    (norm) (mean) : {{0:s}} ({{1:{0:s},f}}) ({{2:{0:s},f}})", torch.Tensor(np.quantile(all_npinput, 0.75, 0)), None),
+				(False, "All labels max     (norm) (mean) : {{0:s}} ({{1:{0:s},f}}) ({{2:{0:s},f}})", torch.Tensor(np.quantile(all_npinput, 1, 0)), None),
+			)
 
 		def stat_fmt_lines(float_str_min_len):
 			"""Given a float_str_min_len value, return formatted stats lines."""
@@ -455,7 +577,10 @@ def train(
 
 		# Did the user specify to save MSE errors?
 		if save_data_path is not None:
-			mse_columns = ["is_training", *["mse_{0:s}".format(column) for column in simulation_data.simulation_info.sim_input_names]]
+			if not reversed:
+				mse_columns = ["is_training", *["mse_{0:s}".format(column) for column in simulation_data.simulation_info.sim_input_names]]
+			else:
+				mse_columns = ["is_training", *["mse_{0:s}".format(column) for column in simulation_data.simulation_info.sim_output_names]]
 			# Prepend the "is_training" column as the first.
 			epoch_training_np_mse = epoch_training_mse.numpy()
 			epoch_testing_np_mse = epoch_testing_mse.numpy()
@@ -667,24 +792,65 @@ def train(
 				# Forward passes.
 
 				# Discriminator: forward pass one batch of real data.
-				discriminator_real_output = model(batch_input, batch_labels, subnetwork_selection=gan.GAN.GANSubnetworkSelection.DISCRIMINATOR_ONLY)
-				discriminator_real_loss_unreduced = loss_function(discriminator_real_output, batch_real_labels)
+				if not reverse:
+					discriminator_real_output = model(batch_input, batch_labels, subnetwork_selection=gan.GAN.GANSubnetworkSelection.DISCRIMINATOR_ONLY)
+					discriminator_real_loss_unreduced = loss_function(discriminator_real_output, batch_real_labels)
+				else:
+					discriminator_real_output = model(batch_labels, batch_input, subnetwork_selection=gan.GAN.GANSubnetworkSelection.DISCRIMINATOR_ONLY)
+					discriminator_real_loss_unreduced = loss_function(discriminator_real_output, batch_real_labels)
 				discriminator_real_loss = discriminator_real_loss_unreduced.mean()
 
 				# Generate a batch of generated_data
-				generator_output = model(batch_input, gan_gen_params, subnetwork_selection=gan.GAN.GANSubnetworkSelection.GENERATOR_ONLY)
+				if not reverse:
+					generator_output = model(batch_input, gan_gen_params, subnetwork_selection=gan.GAN.GANSubnetworkSelection.GENERATOR_ONLY)
+				else:
+					generator_output = model(batch_labels, gan_gen_params, subnetwork_selection=gan.GAN.GANSubnetworkSelection.GENERATOR_ONLY)
+
+				if reversed_model is None:
+					batch_estimated_generated_labels = batch_generated_labels
+					batch_estimated_real_labels = batch_real_labels
+				else:
+					if reversed_use_gan:
+						# For now, just support generating random noise to the reversed GAN.
+						reversed_gan_gen_params = torch.rand((len(batch_input), reversed_model.gan_n), device=data.device)
+						reversed_output = reversed_model(generator_output, reversed_gan_gen_params, subnetwork_selection=gan.GAN.GANSubnetworkSelection.GENERATOR_ONLY)
+					else:
+						reversed_output = reversed_model(generator_output)
+
+					# We generated predicted sim input (vs labels) and the
+					# reversed network gave us sim output predictions (vs
+					# inputs) for the generated predicted sim input.  How close
+					# is the real "output" (batch_input) to the
+					# reversed_model(generator(batch_input)), compared to the
+					# stddevs of the batch_input columns (input_stds)?
+					#
+					# The estimated generated label must be in the range [0, 1].
+					# Get the distance of
+					# reversed_model(generator(batch_input)) from batch_input
+					# in terms of input stddevs (in [0, inf)), and feed that into tanh ([0, 1)).
+					if not reverse:
+						batch_estimated_generated_labels = torch.mean(torch.tanh(torch.abs((reversed_output - batch_input)/input_stds)), dim=1, keepdim=True).detach()
+					else:
+						batch_estimated_generated_labels = torch.mean(torch.tanh(torch.abs((reversed_output - batch_input)/label_stds)), dim=1, keepdim=True).detach()
+					batch_estimated_real_labels = 1 - batch_estimated_generated_labels
 
 				# Discriminator: forward pass one batch of generated data.
-				discriminator_generated_output = model(batch_input, batch_labels, subnetwork_selection=gan.GAN.GANSubnetworkSelection.DISCRIMINATOR_ONLY)
-				discriminator_generated_loss_unreduced = loss_function(discriminator_generated_output, batch_generated_labels)
+				if not reverse:
+					discriminator_generated_output = model(batch_input, batch_labels, subnetwork_selection=gan.GAN.GANSubnetworkSelection.DISCRIMINATOR_ONLY)
+				else:
+					discriminator_generated_output = model(batch_labels, batch_input, subnetwork_selection=gan.GAN.GANSubnetworkSelection.DISCRIMINATOR_ONLY)
+				if data.no_underconfident_discriminator and reversed_model is not None:
+					# If configured, only correct the discriminator when it is more confident that it is real than we are.
+					batch_estimated_generated_labels = torch.min(discriminator_generated_output, batch_estimated_generated_labels).detach()
+				discriminator_generated_loss_unreduced = loss_function(discriminator_generated_output, batch_estimated_generated_labels)
 				discriminator_generated_loss = discriminator_generated_loss_unreduced.mean()
 
 				# Get the mean discriminator loss.
-				#discriminator_loss_unreduced = discriminator_real_loss + (discriminator_generated_loss - discriminator_real_loss )/2
+				#discriminator_loss_unreduced = discriminator_real_loss + (discriminator_generated_loss - discriminator_real_loss)/2
 				discriminator_loss = np.mean((discriminator_real_loss.item(), discriminator_generated_loss.item()))
 
 				# Generator: get loss for the same forward pass.
-				generator_loss_unreduced = loss_function(discriminator_generated_output, batch_real_labels)
+				generator_loss_unreduced = loss_function(discriminator_generated_output, batch_estimated_real_labels)
 				generator_loss = generator_loss_unreduced.mean()
 
 				# Determine which subnetwork trainings to pause.
@@ -784,20 +950,59 @@ def train(
 					# Forward passes.
 
 					# Discriminator: forward pass one batch of real data.
-					discriminator_real_output = model(batch_input, batch_labels, subnetwork_selection=gan.GAN.GANSubnetworkSelection.DISCRIMINATOR_ONLY)
-					discriminator_real_loss_unreduced = loss_function(discriminator_real_output, batch_real_labels)
+					if not reverse:
+						discriminator_real_output = model(batch_input, batch_labels, subnetwork_selection=gan.GAN.GANSubnetworkSelection.DISCRIMINATOR_ONLY)
+						discriminator_real_loss_unreduced = loss_function(discriminator_real_output, batch_real_labels)
+					else:
+						discriminator_real_output = model(batch_labels, batch_input, subnetwork_selection=gan.GAN.GANSubnetworkSelection.DISCRIMINATOR_ONLY)
+						discriminator_real_loss_unreduced = loss_function(discriminator_real_output, batch_real_labels)
 					discriminator_real_loss = discriminator_real_loss_unreduced.mean()
 
 					# Generate a batch of generated_data
-					generator_output = model(batch_input, gan_gen_params, subnetwork_selection=gan.GAN.GANSubnetworkSelection.GENERATOR_ONLY)
+					if not reverse:
+						generator_output = model(batch_input, gan_gen_params, subnetwork_selection=gan.GAN.GANSubnetworkSelection.GENERATOR_ONLY)
+					else:
+						generator_output = model(batch_labels, gan_gen_params, subnetwork_selection=gan.GAN.GANSubnetworkSelection.GENERATOR_ONLY)
+
+					if reversed_model is None:
+						batch_estimated_generated_labels = batch_generated_labels
+						batch_estimated_real_labels = batch_real_labels
+					else:
+						if reversed_use_gan:
+							# For now, just support generating random noise to the reversed GAN.
+							reversed_gan_gen_params = torch.rand((len(batch_input), reversed_model.gan_n), device=data.device)
+							reversed_output = reversed_model(generator_output, reversed_gan_gen_params, subnetwork_selection=gan.GAN.GANSubnetworkSelection.GENERATOR_ONLY)
+						else:
+							reversed_output = reversed_model(generator_output)
+
+						# We generated predicted sim input (vs labels) and the
+						# reversed network gave us sim output predictions (vs
+						# inputs) for the generated predicted sim input.  How close
+						# is the real "output" (batch_input) to the
+						# reversed_model(generator(batch_input)), compared to the
+						# stddevs of the batch_input columns (input_stds)?
+						#
+						# The estimated generated label must be in the range [0, 1].
+						# Get the distance of
+						# reversed_model(generator(batch_input)) from batch_input
+						# in terms of input stddevs (in [0, inf)), and feed that into tanh ([0, 1)).
+						if not reverse:
+							batch_estimated_generated_labels = torch.mean(torch.tanh(torch.abs((reversed_output - batch_input)/input_stds)), dim=1, keepdim=True).detach()
+						else:
+							batch_estimated_generated_labels = torch.mean(torch.tanh(torch.abs((reversed_output - batch_input)/label_stds)), dim=1, keepdim=True).detach()
+						batch_estimated_real_labels = 1 - batch_estimated_generated_labels
 
 					# Discriminator: forward pass one batch of generated data.
-					discriminator_generated_output = model(batch_input, batch_labels, subnetwork_selection=gan.GAN.GANSubnetworkSelection.DISCRIMINATOR_ONLY)
-					discriminator_generated_loss_unreduced = loss_function(discriminator_generated_output, batch_generated_labels)
+					if not reverse:
+						discriminator_generated_output = model(batch_input, batch_labels, subnetwork_selection=gan.GAN.GANSubnetworkSelection.DISCRIMINATOR_ONLY)
+						discriminator_generated_loss_unreduced = loss_function(discriminator_generated_output, batch_estimated_generated_labels)
+					else:
+						discriminator_generated_output = model(batch_labels, batch_input, subnetwork_selection=gan.GAN.GANSubnetworkSelection.DISCRIMINATOR_ONLY)
+						discriminator_generated_loss_unreduced = loss_function(discriminator_generated_output, batch_estimated_generated_labels)
 					discriminator_generated_loss = discriminator_generated_loss_unreduced.mean()
 
 					# Generator: get loss for the same forward pass.
-					generator_loss_unreduced = loss_function(discriminator_generated_output, batch_real_labels)
+					generator_loss_unreduced = loss_function(discriminator_generated_output, batch_estimated_real_labels)
 					generator_loss = generator_loss_unreduced.mean()
 
 					# Record the losses for this batch.
@@ -937,7 +1142,8 @@ def run(
 
 	# Feed the data to the model and collect the output.
 	num_sim_in_columns     = simulation_data.simulation_info.num_sim_inputs
-	num_sim_in_out_columns = num_sim_in_columns + simulation_data.simulation_info.num_sim_outputs
+	num_sim_out_columns    = simulation_data.simulation_info.num_sim_outputs
+	num_sim_in_out_columns = num_sim_in_columns + num_sim_out_columns
 
 	#npdata = simulation_data.data.values[:, :num_sim_in_out_columns]  # (No need for a numpy copy.)
 	all_data = torch.tensor(simulation_data.data.values[:, :num_sim_in_out_columns], dtype=torch.float32, device=data.device, requires_grad=False)
@@ -957,7 +1163,10 @@ def run(
 	gan_gen_params = None
 	if not use_gan:
 		with torch.no_grad():
-			all_output = model(all_input)
+			if not model.reverse:
+				all_output = model(all_input)
+			else:
+				all_output = model(all_labels)
 	else:
 		if gan_fixed_gen:
 			gan_gen_params = data_gan_n
@@ -967,13 +1176,19 @@ def run(
 			gan_gen_params = torch.rand((len(all_input), gan_n), device=data.device)
 
 		with torch.no_grad():
-			all_output = model(all_input, gan_gen_params)
+			if not model.reverse:
+				all_output = model(all_input, gan_gen_params)
+			else:
+				all_output = model(all_labels, gan_gen_params)
 	npoutput=all_output.numpy()
 
 	## Reconstruct the Pandas frame with appropriate columns.
 	input_columns = simulation_data.data.columns.values.tolist()
 
-	predicted_columns = ["pred_{0:s}".format(name) for name in input_columns[:num_sim_in_columns]]
+	if not model.reverse:
+		predicted_columns = ["pred_{0:s}".format(name) for name in input_columns[:num_sim_in_columns]]
+	else:
+		predicted_columns = ["pred_{0:s}".format(name) for name in input_columns[num_sim_in_columns:num_sim_in_out_columns]]
 
 	output_columns = input_columns[:]
 	output_columns[num_sim_in_out_columns:num_sim_in_out_columns] = predicted_columns[:]
@@ -1002,8 +1217,12 @@ def run(
 	)
 
 	# Check boundaries.
-	input_npmins = np.array(simulation_data.simulation_info.sim_input_mins)
-	input_npmaxs = np.array(simulation_data.simulation_info.sim_input_maxs)
+	if not model.reverse:
+		input_npmins = np.array(simulation_data.simulation_info.sim_input_mins)
+		input_npmaxs = np.array(simulation_data.simulation_info.sim_input_maxs)
+	else:
+		input_npmins = np.array(simulation_data.simulation_info.sim_output_mins)
+		input_npmaxs = np.array(simulation_data.simulation_info.sim_output_maxs)
 	if not output_keep_out_of_bounds_samples:
 		# Get a mask of np.array([True, True, True, False, True, ...]) as to which rows are
 		# valid.
@@ -1046,18 +1265,32 @@ def run(
 		min_unique_val, max_unique_val = np.min(all_unique), np.max(all_unique)
 		max_unique_val_str_len = max(len(str(min_unique_val)), len(str(max_unique_val)))
 
-		for idx, name in enumerate(simulation_data.data.columns.values[:simulation_data.simulation_info.num_sim_inputs]):
+		if not model.reverse:
+			columns_check = simulation_data.data.columns.values[:simulation_data.simulation_info.num_sim_inputs]
+		else:
+			columns_check = simulation_data.data.columns.values[simulation_data.simulation_info.num_sim_inputs:simulation_data.simulation_info.num_sim_inputs + simulation_data.simulation_info.num_sim_outputs]
+		for idx, name in enumerate(columns_check):
 			if num_warnings >= 1:
 				logger.warning("")
 
-			std = npoutput_stds[idx]
-			this_threshold = std_warn_threshold * (input_npmaxs[idx] - input_npmins[idx])
-			if std <= 0.0:
-				logger.warning("WARNING: all predictions for simulation input parameter #{0:d} (`{1:s}`) are the same!  Prediction: {2:,f}.".format(idx + 1, name, npoutput[0][idx]))
-				num_warnings += 1
-			elif std <= this_threshold:
-				logger.warning("WARNING: there is little variance in the predictions for simulation input parameter #{0:d} (`{1:s}`): std <= this_threshold: {2:,f} <= {3:,f}.".format(idx + 1, name, std, this_threshold))
-				num_warnings += 1
+			if not model.reverse:
+				std = npoutput_stds[idx]
+				this_threshold = std_warn_threshold * (input_npmaxs[idx] - input_npmins[idx])
+				if std <= 0.0:
+					logger.warning("WARNING: all predictions for simulation input parameter #{0:d} (`{1:s}`) are the same!  Prediction: {2:,f}.".format(idx + 1, name, npoutput[0][idx]))
+					num_warnings += 1
+				elif std <= this_threshold:
+					logger.warning("WARNING: there is little variance in the predictions for simulation input parameter #{0:d} (`{1:s}`): std <= this_threshold: {2:,f} <= {3:,f}.".format(idx + 1, name, std, this_threshold))
+					num_warnings += 1
+			else:
+				std = npoutput_stds[idx]
+				this_threshold = std_warn_threshold * (input_npmaxs[idx] - input_npmins[idx])
+				if std <= 0.0:
+					logger.warning("WARNING: all predictions for simulation output parameter #{0:d} (`{1:s}`) are the same!  Prediction: {2:,f}.".format(idx + 1, name, npoutput[0][idx]))
+					num_warnings += 1
+				elif std <= this_threshold:
+					logger.warning("WARNING: there is little variance in the predictions for simulation output parameter #{0:d} (`{1:s}`): std <= this_threshold: {2:,f} <= {3:,f}.".format(idx + 1, name, std, this_threshold))
+					num_warnings += 1
 
 			# Count unique values and warn if there are few.
 			col = npoutput[:,idx]
@@ -1068,10 +1301,16 @@ def run(
 			max_unique_val_str_len = max(len(str(min_unique_val)), len(str(max_unique_val)))
 
 			if len(unique) <= unique_warn_threshold:
-				logger.warning("WARNING: there are few unique values (#{0:,d}) for predictions for simulation input parameter #{1:d} (`{2:s}`):".format(
-					len(unique), idx + 1, name
-				))
-				num_warnings += 1
+				if not model.reverse:
+					logger.warning("WARNING: there are few unique values (#{0:,d}) for predictions for simulation input parameter #{1:d} (`{2:s}`):".format(
+						len(unique), idx + 1, name
+					))
+					num_warnings += 1
+				else:
+					logger.warning("WARNING: there are few unique values (#{0:,d}) for predictions for simulation output parameter #{1:d} (`{2:s}`):".format(
+						len(unique), idx + 1, name
+					))
+					num_warnings += 1
 
 				max_unique = max(unique)
 				len_str_max_unique = len(str(max_unique))
@@ -1114,8 +1353,12 @@ def run(
 
 	# Print MSE for each column.
 	nplabels = all_labels.numpy()
+	npinput  = all_input.numpy()
 
-	nperrors = (npoutput - nplabels)**2
+	if not model.reverse:
+		nperrors = (npoutput - nplabels)**2
+	else:
+		nperrors = (npoutput - npinput)**2
 
 	mse_npmeans = np.apply_along_axis(np.mean, axis=0, arr=nperrors)
 	rmse_npmeans = np.sqrt(mse_npmeans)
@@ -1124,24 +1367,43 @@ def run(
 
 	labels_npvar = np.apply_along_axis(np.var, axis=0, arr=nplabels)
 	labels_npstd = np.apply_along_axis(np.std, axis=0, arr=nplabels)
+	input_npvar = np.apply_along_axis(np.var, axis=0, arr=npinput)
+	input_npstd = np.apply_along_axis(np.std, axis=0, arr=npinput)
 
-	logger.info("")
-	logger.info("Columns: <{0:s}>".format(", ".join(simulation_data.simulation_info.sim_input_names)))
-	logger.info("")
-	logger.info("Prediction MSEs for each column: <{0:s}>".format(", ".join("{0:f}".format(x) for x in mse_npmeans)))
-	logger.info("Label variance for each column: <{0:s}>".format(", ".join("{0:f}".format(x) for x in labels_npvar)))
-	logger.info("")
-	logger.info("Prediction RMSEs for each column: <{0:s}>".format(", ".join("{0:f}".format(x) for x in rmse_npmeans)))
-	logger.info("Label stddev for each column: <{0:s}>".format(", ".join("{0:f}".format(x) for x in labels_npstd)))
-	logger.info("")
-	logger.info("Mean of column MSEs: {0:f}".format(mse_mean))
-	logger.info("Mean of label variances: {0:f}".format(labels_npvar.mean()))
-	logger.info("")
-	logger.info("Mean of column RMSEs: {0:f}".format(rmse_mean))
-	logger.info("Mean of label stddevs: {0:f}".format(labels_npstd.mean()))
+	if not model.reverse:
+		logger.info("")
+		logger.info("Columns: <{0:s}>".format(", ".join(simulation_data.simulation_info.sim_input_names)))
+		logger.info("")
+		logger.info("Prediction MSEs for each column: <{0:s}>".format(", ".join("{0:f}".format(x) for x in mse_npmeans)))
+		logger.info("Label variance for each column: <{0:s}>".format(", ".join("{0:f}".format(x) for x in labels_npvar)))
+		logger.info("")
+		logger.info("Prediction RMSEs for each column: <{0:s}>".format(", ".join("{0:f}".format(x) for x in rmse_npmeans)))
+		logger.info("Label stddev for each column: <{0:s}>".format(", ".join("{0:f}".format(x) for x in labels_npstd)))
+		logger.info("")
+		logger.info("Mean of column MSEs: {0:f}".format(mse_mean))
+		logger.info("Mean of label variances: {0:f}".format(labels_npvar.mean()))
+		logger.info("")
+		logger.info("Mean of column RMSEs: {0:f}".format(rmse_mean))
+		logger.info("Mean of label stddevs: {0:f}".format(labels_npstd.mean()))
+	else:
+		logger.info("")
+		logger.info("(Reversed model: columns are sim outs, not sim ins.)")
+		logger.info("Columns: <{0:s}>".format(", ".join(simulation_data.simulation_info.sim_output_names)))
+		logger.info("")
+		logger.info("Prediction MSEs for each column: <{0:s}>".format(", ".join("{0:f}".format(x) for x in mse_npmeans)))
+		logger.info("Label variance for each column: <{0:s}>".format(", ".join("{0:f}".format(x) for x in input_npvar)))
+		logger.info("")
+		logger.info("Prediction RMSEs for each column: <{0:s}>".format(", ".join("{0:f}".format(x) for x in rmse_npmeans)))
+		logger.info("Label stddev for each column: <{0:s}>".format(", ".join("{0:f}".format(x) for x in input_npstd)))
+		logger.info("")
+		logger.info("Mean of column MSEs: {0:f}".format(mse_mean))
+		logger.info("Mean of label variances: {0:f}".format(input_npvar.mean()))
+		logger.info("")
+		logger.info("Mean of column RMSEs: {0:f}".format(rmse_mean))
+		logger.info("Mean of label stddevs: {0:f}".format(input_npstd.mean()))
 
 	# Write the output.
-	simulation_data.save(output)
+	simulation_data.save(output, reverse=model.reverse)
 	logger.info("Wrote CSV output with predictions to `{0:s}'.".format(save_data_path))
 
 def stats(save_data_path, logger=logger):

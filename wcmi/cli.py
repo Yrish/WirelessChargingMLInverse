@@ -262,6 +262,30 @@ def get_argument_parser(prog=None):
 	parser.add_argument("--save-data", type=str, help="(All actions): after running the neural network model on the loaded CSV data, output ")
 
 	parser.add_argument(
+		"--reverse",
+		action="store_true",
+		help="(train action) instead of predicting simulation inputs for desired simulation outputs, the neural network learns to predict simulation outputs from simulation inputs.",
+	)
+
+	parser.add_argument(
+		"--load-reversed-model",
+		type=str,
+		help="(train --gan action) instead of assuming generated sim input is fake, pass generated sim input through this model to estimate if the sim input leads to the sim output.",
+	)
+
+	parser.add_argument(
+		"--reversed-dense",
+		action="store_true",
+		help="(train --gan action) the loaded reversed model is a Dense model.",
+	)
+
+	parser.add_argument(
+		"--reversed-gan",
+		action="store_true",
+		help="(train --gan action) the loaded reversed model is a GAN model.",
+	)
+
+	parser.add_argument(
 		"--num-epochs", type=int, default=data.default_num_epochs,
 		help="(train action): how many times to train this model over the entire dataset (default: {0:d}); 0 to disable.".format(
 			data.default_num_epochs,
@@ -359,6 +383,10 @@ def verify_common_options(options):
 	if options.dense and options.gan:
 		raise WCMIArgsError("error: both --gan and --dense were specified.")
 
+	# Ensure multiple models are not specified at the same time.
+	if options.reversed_dense and options.reversed_gan:
+		raise WCMIArgsError("error: both --reversed-gan and --reversed-dense were specified.")
+
 	# Check --gan-n.
 	if options.gan_n < 0:
 		raise WCMIArgsError("error: --gan-n must be provided with a non-negative number, but {0:d} was provided.".format(options.gan_n))
@@ -366,6 +394,10 @@ def verify_common_options(options):
 	# Check --gan-force-fixed-gen-params is specified with --gan.
 	if options.gan_force_fixed_gen_params and not options.gan:
 		raise WCMIArgsError("error: --gan-force-fixed-gen-params requires --gan.")
+
+	# Check --load-reversed-model has a type specified.
+	if options.load_reversed_model is not None and not options.reversed_dense and not options.reversed_gan:
+		raise WCMIArgsError("error: train --load-reversed-model requires either --reversed-dense or --reversed-gan.")
 
 def verify_model_options(options):
 	"""
@@ -409,6 +441,12 @@ def train(options, parser=argument_parser, logger=logger):
 	if options.output_keep_out_of_bounds_samples:
 		raise WCMIArgsError("error: the train action doesn't support --output-keep-out-of-bounds-samples.")
 
+	if options.load_reversed_model is not None and not options.gan:
+		raise WCMIArgsError("error: train --dense doesn't support --load-reversed-model.")
+
+	if options.reversed_dense and options.reversed_gan:
+		raise WCMIArgsError("error: train --reversed-dense and --reversed-gan cannot both be specified.")
+
 	# Call the action.
 	return wnn.interface.train(
 		use_gan=options.gan,
@@ -416,6 +454,9 @@ def train(options, parser=argument_parser, logger=logger):
 		save_model_path=options.save_model,
 		load_data_path=options.load_data,
 		save_data_path=options.save_data,
+		reverse=options.reverse,
+		load_reversed_model_path=options.load_reversed_model,
+		reversed_use_gan=options.reversed_gan,
 		gan_n=options.gan_n,
 		num_epochs=options.num_epochs,
 		status_every_epoch=options.status_every_epoch,
@@ -447,11 +488,19 @@ def run(options, parser=argument_parser, logger=logger):
 
 	if options.save_model is not None:
 		raise WCMIArgsError("error: the run action doesn't support --save-model.")
+	if options.load_reversed_model is not None:
+		raise WCMIArgsError("error: the run action doesn't support --load-reversed-model.  It is only used for training.")
 
+	if options.reverse:
+		raise WCMIArgsError("error: the run action doesn't support --reverse.  It is read from the saved model.")
 	if options.gan_force_fixed_gen_params:
 		raise WCMIArgsError(
 			"error: the run action doesn't support --gan-force-fixed-gen-params.  run will use fixed GAN generation parameters instead of random noise only if the input CSV data specified them.",
 		)
+	if options.reversed_dense:
+		raise WCMIArgsError("error: the run action doesn't support --reversed-dense.  It is only used with --load-reversed-model for the train action.")
+	if options.reversed_gan:
+		raise WCMIArgsError("error: the run action doesn't support --reversed-gan.  It is only used with --load-reversed-model for the train action.")
 
 	if options.batch_size != data.default_batch_size:
 		raise WCMIArgsError("error: the run action doesn't support --batch-size.")
@@ -489,19 +538,27 @@ def stats(options, parser=argument_parser, logger=logger):
 	verify_common_options(options)
 	verify_load_data_options(options)
 
-	if options.load_data is None:
+	if options.load_data is not None:
 		raise WCMIArgsError("error: the stats action requires --load-data.")
-	if options.save_data is None:
+	if options.save_data is not None:
 		raise WCMIArgsError("error: the stats action requires --save-data.")
+	if options.load_reversed_model is not None:
+		raise WCMIArgsError("error: the stats action doesn't support --load-reversed-model.")
 	if options.load_model is None:
 		raise WCMIArgsError("error: the stats action doesn't support --load-model.")
 	if options.save_model is None:
 		raise WCMIArgsError("error: the stats action doesn't support --save-model.")
 
+	if options.reverse:
+		raise WCMIArgsError("error: the stats action doesn't support --reverse.")
 	if options.output_keep_out_of_bounds_samples:
 		raise WCMIArgsError("error: the stats action doesn't support --output-keep-out-of-bounds-samples.")
 	if options.gan_force_fixed_gen_params:
 		raise WCMIArgsError("error: the stats action doesn't support --gan-force-fixed-gen-params.")
+	if options.reversed_dense:
+		raise WCMIArgsError("error: the stats action doesn't support --reversed-dense.  It is only used with --load-reversed-model for the train action.")
+	if options.reversed_gan:
+		raise WCMIArgsError("error: the stats action doesn't support --reversed-gan.  It is only used with --load-reversed-model for the train action.")
 
 	if options.batch_size != data.default_batch_size:
 		raise WCMIArgsError("error: the stats action doesn't support --batch-size.")

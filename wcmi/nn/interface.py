@@ -810,22 +810,22 @@ def train(
 			# this epoch.
 
 			# "training_mean_discriminator_real_bce_loss"
-			epoch_losses[epoch][0] = current_epoch_training_losses[:, 0].mean()
+			epoch_losses[epoch][0] = current_epoch_training_losses[:, 0].mean().item()
 
 			# "training_mean_discriminator_generated_bce_loss"
-			epoch_losses[epoch][1] = current_epoch_training_losses[:, 1].mean()
+			epoch_losses[epoch][1] = current_epoch_training_losses[:, 1].mean().item()
 
 			# "training_mean_generator_bce_loss"
-			epoch_losses[epoch][2] = current_epoch_training_losses[:, 2].mean()
+			epoch_losses[epoch][2] = current_epoch_training_losses[:, 2].mean().item()
 
 			# "testing_mean_discriminator_real_bce_loss"
-			epoch_losses[epoch][3] = current_epoch_testing_losses[:, 0].mean()
+			epoch_losses[epoch][3] = current_epoch_testing_losses[:, 0].mean().item()
 
 			# "testing_mean_discriminator_generated_bce_loss"
-			epoch_losses[epoch][4] = current_epoch_testing_losses[:, 1].mean()
+			epoch_losses[epoch][4] = current_epoch_testing_losses[:, 1].mean().item()
 
 			# "testing_mean_generator_bce_loss"
-			epoch_losses[epoch][5] = current_epoch_testing_losses[:, 2].mean()
+			epoch_losses[epoch][5] = current_epoch_testing_losses[:, 2].mean().item()
 
 			# "num_training_samples"
 			epoch_losses[epoch][6] = num_training_samples

@@ -1,33 +1,33 @@
 Logging enabled.
-./wcmi.py run --gan --load-model=dist/gan.pt --load-data=data/4th_dataset_noid.csv --save-data=dist/4th_dataset_gan_predictions.csv --log=dist/log/run_gan.log --log-truncate
+./wcmi.py run --gan --load-model=dist/gan_00_initial.pt --load-data=data/4th_dataset_noid.csv --save-data=dist/4th_dataset_gan_predictions.csv --log=dist/log/run_gan.log --log-truncate
 All model predictions are within the minimum and maximum boundaries.
 
-WARNING: there is little variance in the predictions for simulation input parameter #1 (`Iin[A]`): std <= this_threshold: 2.140124 <= 9.900000.
+WARNING: there is little variance in the predictions for simulation input parameter #1 (`Iin[A]`): std <= this_threshold: 1.499612 <= 9.900000.
 
-WARNING: there is little variance in the predictions for simulation input parameter #2 (`Iout[A]`): std <= this_threshold: 0.985591 <= 9.900000.
+WARNING: there is little variance in the predictions for simulation input parameter #2 (`Iout[A]`): std <= this_threshold: 1.823764 <= 9.900000.
 
-WARNING: there is little variance in the predictions for simulation input parameter #3 (`l[mm]`): std <= this_threshold: 33.780235 <= 149.700000.
+WARNING: there is little variance in the predictions for simulation input parameter #3 (`l[mm]`): std <= this_threshold: 48.563637 <= 149.700000.
 
-WARNING: there is little variance in the predictions for simulation input parameter #4 (`p1[mm]`): std <= this_threshold: 3.482935 <= 14.700000.
+WARNING: there is little variance in the predictions for simulation input parameter #4 (`p1[mm]`): std <= this_threshold: 4.860908 <= 14.700000.
 
-WARNING: there is little variance in the predictions for simulation input parameter #5 (`p2[mm]`): std <= this_threshold: 3.599623 <= 14.700000.
+WARNING: there is little variance in the predictions for simulation input parameter #5 (`p2[mm]`): std <= this_threshold: 4.464566 <= 14.700000.
 
-WARNING: there is little variance in the predictions for simulation input parameter #6 (`p3[mm]`): std <= this_threshold: 2.648300 <= 14.700000.
+WARNING: there is little variance in the predictions for simulation input parameter #6 (`p3[mm]`): std <= this_threshold: 3.809080 <= 14.700000.
 
-WARNING: there is little variance in the predictions for simulation input parameter #7 (`win[mm]`): std <= this_threshold: 19.556351 <= 99.900000.
+WARNING: there is little variance in the predictions for simulation input parameter #7 (`win[mm]`): std <= this_threshold: 25.019196 <= 99.900000.
 
 
 Columns: <Iin[A], Iout[A], l[mm], p1[mm], p2[mm], p3[mm], win[mm]>
 
-Prediction MSEs for each column: <175.048401, 188.666885, 98587.382812, 840.093872, 862.744446, 845.790710, 47190.992188>
+Prediction MSEs for each column: <159.889435, 150.523071, 88456.796875, 843.123962, 917.491516, 842.827271, 41169.597656>
 Label variance for each column: <155.555573, 155.555557, 90053.718750, 819.498596, 847.179260, 847.179260, 42892.542969>
 
-Prediction RMSEs for each column: <13.230586, 13.735606, 313.986267, 28.984373, 29.372511, 29.082481, 217.234879>
+Prediction RMSEs for each column: <12.644739, 12.268785, 297.416870, 29.036596, 30.290123, 29.031488, 202.902924>
 Label stddev for each column: <12.472192, 12.472192, 300.089508, 28.626886, 29.106344, 29.106344, 207.105148>
 
-Mean of column MSEs: 21241.531250
+Mean of column MSEs: 18934.322266
 Mean of label variances: 19395.890625
 
-Mean of column RMSEs: 92.232384
+Mean of column RMSEs: 87.655937
 Mean of label stddevs: 88.425522
 Wrote CSV output with predictions to `dist/4th_dataset_gan_predictions.csv'.

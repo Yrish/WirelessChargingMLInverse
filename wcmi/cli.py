@@ -794,7 +794,7 @@ def get_default_actions(parser=argument_parser):
 		("run", {
 			"dense":        (True,                                  "--dense"),
 			"load_model":   ("dist/dense.pt",                       "--load-model=dist/dense.pt"),
-			"load_data":    ("data/random.csv",                     "--load-data=data/random.csv"),
+			"load_data":    ("dist/random.csv",                     "--load-data=dist/random.csv"),
 			"save_data":    ("dist/predictions_for_random.csv",     "--save-data=dist/predictions_for_random.csv"),
 			"log":          ("dist/log/random_run_dense.log",       "--log=dist/log/random_run_dense.log"),
 			"log_truncate": (True,                                  "--log-truncate"),
@@ -802,7 +802,7 @@ def get_default_actions(parser=argument_parser):
 		("run", {
 			"gan":          (True,                                  "--gan"),
 			"load_model":   ("dist/gan.pt",                         "--load-model=dist/gan.pt"),
-			"load_data":    ("data/random.csv",                     "--load-data=data/random.csv"),
+			"load_data":    ("dist/random.csv",                     "--load-data=dist/random.csv"),
 			"save_data":    ("dist/predictions_for_random.csv",     "--save-data=dist/predictions_for_random.csv"),
 			"log":          ("dist/log/random_run_gan.log",         "--log=dist/log/random_run_gan.log"),
 			"log_truncate": (True,                                  "--log-truncate"),
@@ -810,7 +810,7 @@ def get_default_actions(parser=argument_parser):
 		("run", {
 			"gan":          (True,                                  "--gan"),
 			"load_model":   ("dist/with_reversed_gan_gan.pt",       "--load-model=dist/with_reversed_gan_gan.pt"),
-			"load_data":    ("data/random.csv",                     "--load-data=data/random.csv"),
+			"load_data":    ("dist/random.csv",                     "--load-data=dist/random.csv"),
 			"save_data":    ("dist/with_reversed_gan_predictions_for_random.csv", "--save-data=dist/with_reversed_gan_predictions_for_random.csv"),
 			"log":          ("dist/log/with_reversed_gan_random_run_gan.log", "--log=dist/log/with_reversed_gan_random_run_gan.log"),
 			"log_truncate": (True,                                  "--log-truncate"),

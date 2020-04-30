@@ -712,9 +712,9 @@ def get_default_actions(parser=argument_parser):
 		("train", {
 			"dense":        (True,                                  "--dense"),
 			"reverse":      (True,                                  "--reverse"),
-			"load_model":   ("dist/dense_00_initial.pt",            "--load-model=dist/dense_00_initial.pt"),
+			"load_model":   ("dist/reverse_dense_00_initial.pt",    "--load-model=dist/reverse_dense_00_initial.pt"),
 			"load_data":    ("data/4th_dataset_noid.csv",           "--load-data=data/4th_dataset_noid.csv"),
-			"save_model":   ("dist/dense.pt",                       "--save-model=dist/dense.pt"),
+			"save_model":   ("dist/reverse_dense.pt",               "--save-model=dist/reverse_dense.pt"),
 			"save_data":    ("dist/reverse_train_dense_mse_01_repeat.csv", "--save-data=dist/reverse_train_dense_mse_01_repeat.csv"),
 			"log":          ("dist/log/reverse_train_dense_01_repeat.log", "--log=dist/log/reverse_train_dense_01_repeat.log"),
 			"log_truncate": (True,                                  "--log-truncate"),
@@ -732,7 +732,7 @@ def get_default_actions(parser=argument_parser):
 		("train", {
 			"gan":          (True,                                  "--gan"),
 			"reverse":      (True,                                  "--reverse"),
-			"load_model":   ("dist/gan_00_initial.pt",              "--load-model=dist/gan_00_initial.pt"),
+			"load_model":   ("dist/reverse_gan_00_initial.pt",      "--load-model=dist/reverse_gan_00_initial.pt"),
 			"load_data":    ("data/4th_dataset_noid.csv",           "--load-data=data/4th_dataset_noid.csv"),
 			"save_model":   ("dist/reverse_gan.pt",                 "--save-model=dist/reverse_gan.pt"),
 			"save_data":    ("dist/reverse_train_gan_bce_01_repeat.csv", "--save-data=dist/reverse_train_gan_bce_01_repeat.csv"),
@@ -742,7 +742,7 @@ def get_default_actions(parser=argument_parser):
 
 		("run", {
 			"dense":        (True,                                  "--dense"),
-			"load_model":   ("dist/dense.pt",                       "--load-model=dist/dense.pt"),
+			"load_model":   ("dist/reverse_dense.pt",               "--load-model=dist/reverse_dense.pt"),
 			"load_data":    ("data/4th_dataset_noid.csv",           "--load-data=data/4th_dataset_noid.csv"),
 			"save_data":    ("dist/reverse_4th_dataset_dense_predictions.csv", "--save-data=dist/reverse_4th_dataset_dense_predictions.csv"),
 			"log":          ("dist/log/reverse_run_dense.log",      "--log=dist/log/reverse_run_dense.log"),
@@ -760,7 +760,7 @@ def get_default_actions(parser=argument_parser):
 		# GAN with reversed gan sequence:
 		("train", {
 			"gan":          (True,                                  "--gan"),
-			"load_reversed_model": ("dist/reverse_gat.pt",          "--load-reversed-model=dist/reverse_gat.pt"),
+			"load_reversed_model": ("dist/reverse_gan.pt",          "--load-reversed-model=dist/reverse_gan.pt"),
 			"reversed_gan": (True,                                  "--reversed-gan"),
 			"load_data":    ("data/4th_dataset_noid.csv",           "--load-data=data/4th_dataset_noid.csv"),
 			"save_model":   ("dist/with_reversed_gan_gan_00_initial.pt", "--save-model=dist/with_reversed_gan_gan_00_initial.pt"),
@@ -772,7 +772,7 @@ def get_default_actions(parser=argument_parser):
 		("train", {
 			"gan":          (True,                                  "--gan"),
 			"load_model":   ("dist/with_reversed_gan_gan_00_initial.pt", "--load-model=dist/with_reversed_gan_gan_00_initial.pt"),
-			"load_reversed_model": ("dist/reverse_gat.pt",          "--load-reversed-model=dist/reverse_gat.pt"),
+			"load_reversed_model": ("dist/reverse_gan.pt",          "--load-reversed-model=dist/reverse_gan.pt"),
 			"reversed_gan": (True,                                  "--reversed-gan"),
 			"load_data":    ("data/4th_dataset_noid.csv",           "--load-data=data/4th_dataset_noid.csv"),
 			"save_model":   ("dist/with_reversed_gan_gan.pt",       "--save-model=dist/with_reversed_gan_gan.pt"),

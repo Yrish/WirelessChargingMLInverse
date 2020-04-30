@@ -1,0 +1,33 @@
+Logging enabled.
+./wcmi.py run --gan --load-model=dist/with_reversed_gan_gan.pt --load-data=data/4th_dataset_noid.csv --save-data=dist/with_reversed_gan_4th_dataset_gan_predictions.csv --log=dist/log/with_reversed_gan_run_gan.log --log-truncate --num-epochs=10 --status-every-epoch=1
+All model predictions are within the minimum and maximum boundaries.
+
+WARNING: there is little variance in the predictions for simulation input parameter #1 (`Iin[A]`): std <= this_threshold: 1.371341 <= 9.900000.
+
+WARNING: there is little variance in the predictions for simulation input parameter #2 (`Iout[A]`): std <= this_threshold: 2.382264 <= 9.900000.
+
+WARNING: there is little variance in the predictions for simulation input parameter #3 (`l[mm]`): std <= this_threshold: 47.261349 <= 149.700000.
+
+WARNING: there is little variance in the predictions for simulation input parameter #4 (`p1[mm]`): std <= this_threshold: 5.369507 <= 14.700000.
+
+WARNING: there is little variance in the predictions for simulation input parameter #5 (`p2[mm]`): std <= this_threshold: 3.674706 <= 14.700000.
+
+WARNING: there is little variance in the predictions for simulation input parameter #6 (`p3[mm]`): std <= this_threshold: 3.957191 <= 14.700000.
+
+WARNING: there is little variance in the predictions for simulation input parameter #7 (`win[mm]`): std <= this_threshold: 25.165905 <= 99.900000.
+
+
+Columns: <Iin[A], Iout[A], l[mm], p1[mm], p2[mm], p3[mm], win[mm]>
+
+Prediction MSEs for each column: <158.502090, 194.513000, 83050.921875, 861.451843, 842.796265, 877.484253, 47676.324219>
+Label variance for each column: <155.555573, 155.555557, 90053.718750, 819.498596, 847.179260, 847.179260, 42892.542969>
+
+Prediction RMSEs for each column: <12.589762, 13.946792, 288.185577, 29.350500, 29.030954, 29.622360, 218.349091>
+Label stddev for each column: <12.472192, 12.472192, 300.089508, 28.626886, 29.106344, 29.106344, 207.105148>
+
+Mean of column MSEs: 19094.572266
+Mean of label variances: 19395.890625
+
+Mean of column RMSEs: 88.725014
+Mean of label stddevs: 88.425522
+Wrote CSV output with predictions to `dist/with_reversed_gan_4th_dataset_gan_predictions.csv'.

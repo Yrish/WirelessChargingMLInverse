@@ -11,15 +11,17 @@ import logging
 import logging.handlers
 import os.path
 import shlex
+import subprocess
 import sys
 import textwrap
+import time
 
 if True:
 	# Let wcmi/cli.py be callable in a standalone directory.
 	import sys, os.path
 	sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from wcmi.exception import WCMIArgsError
+from wcmi.exception import WCMIError, WCMIArgsError
 from wcmi.log import logger
 
 import wcmi.log
@@ -134,7 +136,7 @@ def cli(args=None, argv=None, parser=None, logger=logger):
 	action = options.action
 	if action not in actions:
 		raise WCMIArgsError("error: unrecognized action `{0:s}'.  Try passing train, run, or stats.".format(action))
-	return actions[action](options, parser=parser, logger=logger)
+	return actions[action](options, parser=parser, args=args, prog=argv[0], logger=logger)
 
 def get_argument_parser(prog=None):
 	"""
@@ -262,6 +264,30 @@ def get_argument_parser(prog=None):
 	parser.add_argument("--save-data", type=str, help="(All actions): after running the neural network model on the loaded CSV data, output ")
 
 	parser.add_argument(
+		"--reverse",
+		action="store_true",
+		help="(train action) instead of predicting simulation inputs for desired simulation outputs, the neural network learns to predict simulation outputs from simulation inputs.",
+	)
+
+	parser.add_argument(
+		"--load-reversed-model",
+		type=str,
+		help="(train --gan action) instead of assuming generated sim input is fake, pass generated sim input through this model to estimate if the sim input leads to the sim output.",
+	)
+
+	parser.add_argument(
+		"--reversed-dense",
+		action="store_true",
+		help="(train --gan action) the loaded reversed model is a Dense model.",
+	)
+
+	parser.add_argument(
+		"--reversed-gan",
+		action="store_true",
+		help="(train --gan action) the loaded reversed model is a GAN model.",
+	)
+
+	parser.add_argument(
 		"--num-epochs", type=int, default=data.default_num_epochs,
 		help="(train action): how many times to train this model over the entire dataset (default: {0:d}); 0 to disable.".format(
 			data.default_num_epochs,
@@ -359,6 +385,10 @@ def verify_common_options(options):
 	if options.dense and options.gan:
 		raise WCMIArgsError("error: both --gan and --dense were specified.")
 
+	# Ensure multiple models are not specified at the same time.
+	if options.reversed_dense and options.reversed_gan:
+		raise WCMIArgsError("error: both --reversed-gan and --reversed-dense were specified.")
+
 	# Check --gan-n.
 	if options.gan_n < 0:
 		raise WCMIArgsError("error: --gan-n must be provided with a non-negative number, but {0:d} was provided.".format(options.gan_n))
@@ -366,6 +396,10 @@ def verify_common_options(options):
 	# Check --gan-force-fixed-gen-params is specified with --gan.
 	if options.gan_force_fixed_gen_params and not options.gan:
 		raise WCMIArgsError("error: --gan-force-fixed-gen-params requires --gan.")
+
+	# Check --load-reversed-model has a type specified.
+	if options.load_reversed_model is not None and not options.reversed_dense and not options.reversed_gan:
+		raise WCMIArgsError("error: train --load-reversed-model requires either --reversed-dense or --reversed-gan.")
 
 def verify_model_options(options):
 	"""
@@ -393,7 +427,7 @@ def verify_load_data_options(options):
 		raise WCMIArgsError("error: --load-data .../path/to/data.csv must be specified.")
 
 @add_action
-def train(options, parser=argument_parser, logger=logger):
+def train(options, parser=argument_parser, args=None, prog=None, logger=logger):
 	"""
 	Call the train action after some argument verification.
 	"""
@@ -406,8 +440,14 @@ def train(options, parser=argument_parser, logger=logger):
 	if options.save_model is None:
 		raise WCMIArgsError("error: the train action requires --save-model.")
 
+	if options.load_reversed_model is not None and not options.gan:
+		raise WCMIArgsError("error: train --dense doesn't support --load-reversed-model.")
+
+	if options.reversed_dense and options.reversed_gan:
+		raise WCMIArgsError("error: train --reversed-dense and --reversed-gan cannot both be specified.")
+
 	if options.output_keep_out_of_bounds_samples:
-		raise WCMIArgsError("error: the train action doesn't support --output-keep-out-of-bounds-samples.")
+		logger.warning("warning: the train action doesn't support --output-keep-out-of-bounds-samples.")
 
 	# Call the action.
 	return wnn.interface.train(
@@ -416,6 +456,9 @@ def train(options, parser=argument_parser, logger=logger):
 		save_model_path=options.save_model,
 		load_data_path=options.load_data,
 		save_data_path=options.save_data,
+		reverse=options.reverse,
+		load_reversed_model_path=options.load_reversed_model,
+		reversed_use_gan=options.reversed_gan,
 		gan_n=options.gan_n,
 		num_epochs=options.num_epochs,
 		status_every_epoch=options.status_every_epoch,
@@ -432,7 +475,7 @@ def train(options, parser=argument_parser, logger=logger):
 	)
 
 @add_action
-def run(options, parser=argument_parser, logger=logger):
+def run(options, parser=argument_parser, args=None, prog=None, logger=logger):
 	"""
 	Call the run action after some argument verification.
 	"""
@@ -447,26 +490,34 @@ def run(options, parser=argument_parser, logger=logger):
 
 	if options.save_model is not None:
 		raise WCMIArgsError("error: the run action doesn't support --save-model.")
+	if options.load_reversed_model is not None:
+		logger.warning("warning: the run action doesn't support --load-reversed-model.  It is only used for training.")
 
+	if options.reverse:
+		logger.warning("warning: the run action doesn't support --reverse.  It is read from the saved model.")
 	if options.gan_force_fixed_gen_params:
-		raise WCMIArgsError(
-			"error: the run action doesn't support --gan-force-fixed-gen-params.  run will use fixed GAN generation parameters instead of random noise only if the input CSV data specified them.",
+		logger.warning(
+			"warning: the run action doesn't support --gan-force-fixed-gen-params.  run will use fixed GAN generation parameters instead of random noise only if the input CSV data specified them.",
 		)
+	if options.reversed_dense:
+		logger.warning("warning: the run action doesn't support --reversed-dense.  It is only used with --load-reversed-model for the train action.")
+	if options.reversed_gan:
+		logger.warning("warning: the run action doesn't support --reversed-gan.  It is only used with --load-reversed-model for the train action.")
 
 	if options.batch_size != data.default_batch_size:
-		raise WCMIArgsError("error: the run action doesn't support --batch-size.")
+		logger.warning("warning: the run action doesn't support --batch-size.")
 	if options.learning_rate != data.default_learning_rate:
-		raise WCMIArgsError("error: the run action doesn't support --learning-rate.")
+		logger.warning("warning: the run action doesn't support --learning-rate.")
 	if options.gan_enable_pause != data.default_gan_enable_pause:
-		raise WCMIArgsError("error: the run action doesn't support --gan-disable-pause.")
+		logger.warning("warning: the run action doesn't support --gan-disable-pause.")
 	if options.gan_training_pause_threshold != data.default_gan_training_pause_threshold:
-		raise WCMIArgsError("error: the run action doesn't support --gan-training-pause-threshold.")
+		logger.warning("warning: the run action doesn't support --gan-training-pause-threshold.")
 	if options.pause_min_samples_per_epoch != data.default_pause_min_samples_per_epoch:
-		raise WCMIArgsError("error: the run action doesn't support --pause-min-samples-per-epoch.")
+		logger.warning("warning: the run action doesn't support --pause-min-samples-per-epoch.")
 	if options.pause_min_epochs != data.default_pause_min_epochs:
-		raise WCMIArgsError("error: the run action doesn't support --pause-min-epochs.")
+		logger.warning("warning: the run action doesn't support --pause-min-epochs.")
 	if options.pause_max_epochs != data.default_pause_max_epochs:
-		raise WCMIArgsError("error: the run action doesn't support --pause-max-epochs.")
+		logger.warning("warning: the run action doesn't support --pause-max-epochs.")
 
 	# Call the action.
 	return wnn.interface.run(
@@ -480,7 +531,7 @@ def run(options, parser=argument_parser, logger=logger):
 	)
 
 @add_action
-def stats(options, parser=argument_parser, logger=logger):
+def stats(options, parser=argument_parser, args=None, prog=None, logger=logger):
 	"""
 	Call the run action after some argument verification.
 	"""
@@ -493,35 +544,93 @@ def stats(options, parser=argument_parser, logger=logger):
 		raise WCMIArgsError("error: the stats action requires --load-data.")
 	if options.save_data is None:
 		raise WCMIArgsError("error: the stats action requires --save-data.")
-	if options.load_model is None:
+
+	if options.load_reversed_model is not None:
+		logger.warning("warning: the stats action doesn't support --load-reversed-model.")
+	if options.load_model is not None:
 		raise WCMIArgsError("error: the stats action doesn't support --load-model.")
-	if options.save_model is None:
+	if options.save_model is not None:
 		raise WCMIArgsError("error: the stats action doesn't support --save-model.")
 
+	if options.reverse:
+		logger.warning("warning: the stats action doesn't support --reverse.")
 	if options.output_keep_out_of_bounds_samples:
-		raise WCMIArgsError("error: the stats action doesn't support --output-keep-out-of-bounds-samples.")
+		logger.warning("warning: the stats action doesn't support --output-keep-out-of-bounds-samples.")
 	if options.gan_force_fixed_gen_params:
-		raise WCMIArgsError("error: the stats action doesn't support --gan-force-fixed-gen-params.")
+		logger.warning("warning: the stats action doesn't support --gan-force-fixed-gen-params.")
+	if options.reversed_dense:
+		logger.warning("warning: the stats action doesn't support --reversed-dense.  It is only used with --load-reversed-model for the train action.")
+	if options.reversed_gan:
+		logger.warning("warning: the stats action doesn't support --reversed-gan.  It is only used with --load-reversed-model for the train action.")
 
 	if options.batch_size != data.default_batch_size:
-		raise WCMIArgsError("error: the stats action doesn't support --batch-size.")
+		logger.warning("warning: the stats action doesn't support --batch-size.")
 	if options.learning_rate != data.default_learning_rate:
-		raise WCMIArgsError("error: the stats action doesn't support --learning-rate.")
+		logger.warning("warning: the stats action doesn't support --learning-rate.")
 	if options.gan_enable_pause != data.default_gan_enable_pause:
-		raise WCMIArgsError("error: the stats action doesn't support --gan-disable-pause.")
+		logger.warning("warning: the stats action doesn't support --gan-disable-pause.")
 	if options.gan_training_pause_threshold != data.default_gan_training_pause_threshold:
-		raise WCMIArgsError("error: the stats action doesn't support --gan-training-pause-threshold.")
+		logger.warning("warning: the stats action doesn't support --gan-training-pause-threshold.")
 	if options.pause_min_samples_per_epoch != data.default_pause_min_samples_per_epoch:
-		raise WCMIArgsError("error: the stats action doesn't support --pause-min-samples-per-epoch.")
+		logger.warning("warning: the stats action doesn't support --pause-min-samples-per-epoch.")
 	if options.pause_min_epochs != data.default_pause_min_epochs:
-		raise WCMIArgsError("error: the stats action doesn't support --pause-min-epochs.")
+		logger.warning("warning: the stats action doesn't support --pause-min-epochs.")
 	if options.pause_max_epochs != data.default_pause_max_epochs:
-		raise WCMIArgsError("error: the stats action doesn't support --pause-max-epochs.")
+		logger.warning("warning: the stats action doesn't support --pause-max-epochs.")
 
 	# Call the action.
 	return wnn.interface.stats(
 		logger=logger,
 	)
+
+@add_action
+def generate(options, parser=argument_parser, args=None, prog=None, logger=logger):
+	"""
+	Just generate 10,000 rows of random data.
+	"""
+
+	# Verify command-line arguments.
+	verify_common_options(options)
+
+	if options.save_data is None:
+		raise WCMIArgsError("error: the generate action requires --save-data.")
+
+	if options.load_data is not None:
+		raise WCMIArgsError("error: the generate action doesn't support --load-data.")
+	if options.load_reversed_model is not None:
+		logger.warning("warning: the generate action doesn't support --load-reversed-model.")
+	if options.load_model is not None:
+		raise WCMIArgsError("error: the generate action doesn't support --load-model.")
+	if options.save_model is not None:
+		raise WCMIArgsError("error: the generate action doesn't support --save-model.")
+
+	if options.reverse:
+		logger.warning("warning: the generate action doesn't support --reverse.")
+	if options.output_keep_out_of_bounds_samples:
+		logger.warning("warning: the generate action doesn't support --output-keep-out-of-bounds-samples.")
+	if options.gan_force_fixed_gen_params:
+		logger.warning("warning: the generate action doesn't support --gan-force-fixed-gen-params.")
+	if options.reversed_dense:
+		logger.warning("warning: the generate action doesn't support --reversed-dense.  It is only used with --load-reversed-model for the train action.")
+	if options.reversed_gan:
+		logger.warning("warning: the generate action doesn't support --reversed-gan.  It is only used with --load-reversed-model for the train action.")
+
+	if options.batch_size != data.default_batch_size:
+		logger.warning("warning: the generate action doesn't support --batch-size.")
+	if options.learning_rate != data.default_learning_rate:
+		logger.warning("warning: the generate action doesn't support --learning-rate.")
+	if options.gan_enable_pause != data.default_gan_enable_pause:
+		logger.warning("warning: the generate action doesn't support --gan-disable-pause.")
+	if options.gan_training_pause_threshold != data.default_gan_training_pause_threshold:
+		logger.warning("warning: the generate action doesn't support --gan-training-pause-threshold.")
+	if options.pause_min_samples_per_epoch != data.default_pause_min_samples_per_epoch:
+		logger.warning("warning: the generate action doesn't support --pause-min-samples-per-epoch.")
+	if options.pause_min_epochs != data.default_pause_min_epochs:
+		logger.warning("warning: the generate action doesn't support --pause-min-epochs.")
+	if options.pause_max_epochs != data.default_pause_max_epochs:
+		logger.warning("warning: the generate action doesn't support --pause-max-epochs.")
+
+	return wnn.interface.generate(save_data_path=options.save_data, logger=logger)
 
 def get_default_actions(parser=argument_parser):
 	"""
@@ -529,6 +638,14 @@ def get_default_actions(parser=argument_parser):
 	"default" action.
 	"""
 	return (
+		# Generate random values:
+		("generate", {
+			"save_data":    ("dist/random.csv", "--save-data=dist/random.csv"),
+			"log":          ("dist/log/generate.log",               "--log=dist/log/generate.log"),
+			"log_truncate": (True,                                  "--log-truncate"),
+		}),
+
+		# No reversing:
 		("train", {
 			"dense":        (True,                                  "--dense"),
 			"load_data":    ("data/4th_dataset_noid.csv",           "--load-data=data/4th_dataset_noid.csv"),
@@ -582,6 +699,124 @@ def get_default_actions(parser=argument_parser):
 			"log_truncate": (True,                                  "--log-truncate"),
 		}),
 
+		# Reverse sequence:
+		("train", {
+			"dense":        (True,                                  "--dense"),
+			"reverse":      (True,                                  "--reverse"),
+			"load_data":    ("data/4th_dataset_noid.csv",           "--load-data=data/4th_dataset_noid.csv"),
+			"save_model":   ("dist/reverse_dense_00_initial.pt",    "--save-model=dist/reverse_dense_00_initial.pt"),
+			"save_data":    ("dist/reverse_train_dense_mse_00_initial.csv", "--save-data=dist/reverse_train_dense_mse_00_initial.csv"),
+			"log":          ("dist/log/reverse_train_dense_00_initial.log", "--log=dist/log/reverse_train_dense_00_initial.log"),
+			"log_truncate": (True,                                  "--log-truncate"),
+		}),
+		("train", {
+			"dense":        (True,                                  "--dense"),
+			"reverse":      (True,                                  "--reverse"),
+			"load_model":   ("dist/reverse_dense_00_initial.pt",    "--load-model=dist/reverse_dense_00_initial.pt"),
+			"load_data":    ("data/4th_dataset_noid.csv",           "--load-data=data/4th_dataset_noid.csv"),
+			"save_model":   ("dist/reverse_dense.pt",               "--save-model=dist/reverse_dense.pt"),
+			"save_data":    ("dist/reverse_train_dense_mse_01_repeat.csv", "--save-data=dist/reverse_train_dense_mse_01_repeat.csv"),
+			"log":          ("dist/log/reverse_train_dense_01_repeat.log", "--log=dist/log/reverse_train_dense_01_repeat.log"),
+			"log_truncate": (True,                                  "--log-truncate"),
+		}),
+		("train", {
+			"gan":          (True,                                  "--gan"),
+			"reverse":      (True,                                  "--reverse"),
+			"load_data":    ("data/4th_dataset_noid.csv",           "--load-data=data/4th_dataset_noid.csv"),
+			"save_model":   ("dist/reverse_gan_00_initial.pt",      "--save-model=dist/reverse_gan_00_initial.pt"),
+			"save_data":    ("dist/reverse_train_gan_bce_00_initial.csv", "--save-data=dist/reverse_train_gan_bce_00_initial.csv"),
+			#"pause_min_samples_per_epoch": (1024,                   "--pause-min-samples-per-epoch=1024"),
+			"log":          ("dist/log/reverse_train_gan_00_initial.log", "--log=dist/log/reverse_train_gan_00_initial.log"),
+			"log_truncate": (True,                                  "--log-truncate"),
+		}),
+		("train", {
+			"gan":          (True,                                  "--gan"),
+			"reverse":      (True,                                  "--reverse"),
+			"load_model":   ("dist/reverse_gan_00_initial.pt",      "--load-model=dist/reverse_gan_00_initial.pt"),
+			"load_data":    ("data/4th_dataset_noid.csv",           "--load-data=data/4th_dataset_noid.csv"),
+			"save_model":   ("dist/reverse_gan.pt",                 "--save-model=dist/reverse_gan.pt"),
+			"save_data":    ("dist/reverse_train_gan_bce_01_repeat.csv", "--save-data=dist/reverse_train_gan_bce_01_repeat.csv"),
+			"log":          ("dist/log/train_gan_01_repeat.log",    "--log=dist/log/train_gan_01_repeat.log"),
+			"log_truncate": (True,                                  "--log-truncate"),
+		}),
+
+		("run", {
+			"dense":        (True,                                  "--dense"),
+			"load_model":   ("dist/reverse_dense.pt",               "--load-model=dist/reverse_dense.pt"),
+			"load_data":    ("data/4th_dataset_noid.csv",           "--load-data=data/4th_dataset_noid.csv"),
+			"save_data":    ("dist/reverse_4th_dataset_dense_predictions.csv", "--save-data=dist/reverse_4th_dataset_dense_predictions.csv"),
+			"log":          ("dist/log/reverse_run_dense.log",      "--log=dist/log/reverse_run_dense.log"),
+			"log_truncate": (True,                                  "--log-truncate"),
+		}),
+		("run", {
+			"gan":          (True,                                  "--gan"),
+			"load_model":   ("dist/reverse_gan.pt",                 "--load-model=dist/reverse_gan.pt"),
+			"load_data":    ("data/4th_dataset_noid.csv",           "--load-data=data/4th_dataset_noid.csv"),
+			"save_data":    ("dist/reverse_4th_dataset_gan_predictions.csv", "--save-data=dist/reverse_4th_dataset_gan_predictions.csv"),
+			"log":          ("dist/log/reverse_run_gan.log",        "--log=dist/log/reverse_run_gan.log"),
+			"log_truncate": (True,                                  "--log-truncate"),
+		}),
+
+		# GAN with reversed gan sequence:
+		("train", {
+			"gan":          (True,                                  "--gan"),
+			"load_reversed_model": ("dist/reverse_gan.pt",          "--load-reversed-model=dist/reverse_gan.pt"),
+			"reversed_gan": (True,                                  "--reversed-gan"),
+			"load_data":    ("data/4th_dataset_noid.csv",           "--load-data=data/4th_dataset_noid.csv"),
+			"save_model":   ("dist/with_reversed_gan_gan_00_initial.pt", "--save-model=dist/with_reversed_gan_gan_00_initial.pt"),
+			"save_data":    ("dist/with_reversed_gan_train_gan_bce_00_initial.csv",   "--save-data=dist/with_reversed_gan_train_gan_bce_00_initial.csv"),
+			#"pause_min_samples_per_epoch": (1024,                   "--pause-min-samples-per-epoch=1024"),
+			"log":          ("dist/log/with_reversed_gan_train_gan_00_initial.log", "--log=dist/log/with_reversed_gan_train_gan_00_initial.log"),
+			"log_truncate": (True,                                  "--log-truncate"),
+		}),
+		("train", {
+			"gan":          (True,                                  "--gan"),
+			"load_model":   ("dist/with_reversed_gan_gan_00_initial.pt", "--load-model=dist/with_reversed_gan_gan_00_initial.pt"),
+			"load_reversed_model": ("dist/reverse_gan.pt",          "--load-reversed-model=dist/reverse_gan.pt"),
+			"reversed_gan": (True,                                  "--reversed-gan"),
+			"load_data":    ("data/4th_dataset_noid.csv",           "--load-data=data/4th_dataset_noid.csv"),
+			"save_model":   ("dist/with_reversed_gan_gan.pt",       "--save-model=dist/with_reversed_gan_gan.pt"),
+			"save_data":    ("dist/with_reversed_gan_train_gan_bce_01_repeat.csv", "--save-data=dist/with_reversed_gan_train_gan_bce_01_repeat.csv"),
+			"log":          ("dist/log/with_reversed_gan_train_gan_01_repeat.log", "--log=dist/log/with_reversed_gan_train_gan_01_repeat.log"),
+			"log_truncate": (True,                                  "--log-truncate"),
+		}),
+
+		("run", {
+			"gan":          (True,                                  "--gan"),
+			"load_model":   ("dist/with_reversed_gan_gan.pt",       "--load-model=dist/with_reversed_gan_gan.pt"),
+			"load_data":    ("data/4th_dataset_noid.csv",           "--load-data=data/4th_dataset_noid.csv"),
+			"save_data":    ("dist/with_reversed_gan_4th_dataset_gan_predictions.csv", "--save-data=dist/with_reversed_gan_4th_dataset_gan_predictions.csv"),
+			"log":          ("dist/log/with_reversed_gan_run_gan.log", "--log=dist/log/with_reversed_gan_run_gan.log"),
+			"log_truncate": (True,                                  "--log-truncate"),
+		}),
+
+		# Repeat the runs for non-reversed models, but on the randomly generated data.
+		("run", {
+			"dense":        (True,                                  "--dense"),
+			"load_model":   ("dist/dense.pt",                       "--load-model=dist/dense.pt"),
+			"load_data":    ("dist/random.csv",                     "--load-data=dist/random.csv"),
+			"save_data":    ("dist/predictions_for_random.csv",     "--save-data=dist/predictions_for_random.csv"),
+			"log":          ("dist/log/random_run_dense.log",       "--log=dist/log/random_run_dense.log"),
+			"log_truncate": (True,                                  "--log-truncate"),
+		}),
+		("run", {
+			"gan":          (True,                                  "--gan"),
+			"load_model":   ("dist/gan.pt",                         "--load-model=dist/gan.pt"),
+			"load_data":    ("dist/random.csv",                     "--load-data=dist/random.csv"),
+			"save_data":    ("dist/predictions_for_random.csv",     "--save-data=dist/predictions_for_random.csv"),
+			"log":          ("dist/log/random_run_gan.log",         "--log=dist/log/random_run_gan.log"),
+			"log_truncate": (True,                                  "--log-truncate"),
+		}),
+		("run", {
+			"gan":          (True,                                  "--gan"),
+			"load_model":   ("dist/with_reversed_gan_gan.pt",       "--load-model=dist/with_reversed_gan_gan.pt"),
+			"load_data":    ("dist/random.csv",                     "--load-data=dist/random.csv"),
+			"save_data":    ("dist/with_reversed_gan_predictions_for_random.csv", "--save-data=dist/with_reversed_gan_predictions_for_random.csv"),
+			"log":          ("dist/log/with_reversed_gan_random_run_gan.log", "--log=dist/log/with_reversed_gan_random_run_gan.log"),
+			"log_truncate": (True,                                  "--log-truncate"),
+		}),
+
+		# Stats on non-reverse training and running:
 		("stats", {
 			"load_data":    ("dist/4th_dataset_dense_mse.csv",      "--load-data=dist/4th_dataset_dense_mse.csv"),
 			"save_data":    ("dist/stats",                          "--save-data=dist/stats"),
@@ -606,15 +841,59 @@ def get_default_actions(parser=argument_parser):
 			"log":          ("dist/log/stats_gan_predictions.log",  "--log=dist/log/stats_gan_predictions.log"),
 			"log_truncate": (True,                                  "--log-truncate"),
 		}),
+
+		# Stats on reverse training and running:
+		("stats", {
+			"load_data":    ("dist/reversed_4th_dataset_dense_mse.csv", "--load-data=dist/reversed_4th_dataset_dense_mse.csv"),
+			"save_data":    ("dist/stats",                          "--save-data=dist/stats"),
+			"log":          ("dist/log/reversed_stats_dense_mse.log", "--log=dist/log/reversed_stats_dense_mse.log"),
+			"log_truncate": (True,                                  "--log-truncate"),
+		}),
+		("stats", {
+			"load_data":    ("dist/reversed_4th_dataset_gan_bce.csv", "--load-data=dist/reversed_4th_dataset_gan_bce.csv"),
+			"save_data":    ("dist/stats",                          "--save-data=dist/stats"),
+			"log":          ("dist/log/reversed_stats_gan_bce.log", "--log=dist/log/reversed_stats_gan_bce.log"),
+			"log_truncate": (True,                                  "--log-truncate"),
+		}),
+		("stats", {
+			"load_data":    ("dist/reversed_4th_dataset_dense_predictions.csv", "--load-data=dist/reversed_4th_dataset_dense_predictions.csv"),
+			"save_data":    ("dist/stats",                          "--save-data=dist/stats"),
+			"log":          ("dist/log/reversed_stats_dense_predictions.log", "--log=dist/log/reversed_stats_dense_predictions.log"),
+			"log_truncate": (True,                                  "--log-truncate"),
+		}),
+		("stats", {
+			"load_data":    ("dist/reversed_4th_dataset_gan_predictions.csv", "--load-data=dist/reversed_4th_dataset_gan_predictions.csv"),
+			"save_data":    ("dist/stats",                          "--save-data=dist/stats"),
+			"log":          ("dist/log/reversed_stats_gan_predictions.log",  "--log=dist/log/reversed_stats_gan_predictions.log"),
+			"log_truncate": (True,                                  "--log-truncate"),
+		}),
+
+		# Stats on gan with reversed gan:
+		("stats", {
+			"load_data":    ("dist/with_reversed_gan_4th_dataset_gan_bce.csv", "--load-data=dist/with_reversed_gan_4th_dataset_gan_bce.csv"),
+			"save_data":    ("dist/stats",                          "--save-data=dist/stats"),
+			"log":          ("dist/log/with_reversed_gan_stats_gan_bce.log",          "--log=dist/log/with_reversed_gan_stats_gan_bce.log"),
+			"log_truncate": (True,                                  "--log-truncate"),
+		}),
+		("stats", {
+			"load_data":    ("dist/with_reversed_gan_4th_dataset_gan_predictions.csv", "--load-data=dist/with_reversed_gan_4th_dataset_gan_predictions.csv"),
+			"save_data":    ("dist/stats",                          "--save-data=dist/stats"),
+			"log":          ("dist/log/with_reversed_gan_stats_gan_predictions.log",  "--log=dist/log/with_reversed_gan_stats_gan_predictions.log"),
+			"log_truncate": (True,                                  "--log-truncate"),
+		}),
 	)
 
 default_actions = get_default_actions()
 
 @add_action
-def default(options, parser=argument_parser, default_actions=default_actions, logger=logger):
+def default(options, default_actions=default_actions, parser=argument_parser, args=None, prog=None, logger=logger):
 	"""
 	Run a typical sequence of train, run, and stats commands.
 	"""
+
+	# Verify arguments.
+	if prog is None:
+		raise WCMIError("error: the `default' action was called without the `prog' argument set.")
 
 	# Verify command-line arguments.
 	verify_common_options(options)
@@ -624,7 +903,7 @@ def default(options, parser=argument_parser, default_actions=default_actions, lo
 		for option_key, (option_value, flag) in action_options.items():
 			if option_key in options:
 				if getattr(options, option_key) != parser.get_default(option_key):
-					raise WCMIArgsError("error: the `default' action provides the flag `{0:s}', but a flag for the target option was passed.".format(flag))
+					raise WCMIArgsError("error: the `default' action provides the flag `{0:s}', but a flag for the same option this flag determines was passed.".format(flag))
 
 	# Get non-default options to call each action with in addition to the
 	# action-specific ones.
@@ -634,6 +913,12 @@ def default(options, parser=argument_parser, default_actions=default_actions, lo
 	except (TypeError, ValueError, AttributeError, KeyError) as ex:
 		raise ex
 
+	# Get arguments after the action.
+	if args[:1] == ["default"]:
+		args_post_action = args[1:]
+	else:
+		args_post_action = args[:]
+
 	# Prepare to run each action.
 	is_python_3_8 = True
 	try:
@@ -642,7 +927,7 @@ def default(options, parser=argument_parser, default_actions=default_actions, lo
 	except AttributeError as ex:
 		is_python_3_8 = False
 	if is_python_3_8:
-		def format_action(action, action_options):
+		def format_action(action, action_options, args_post_action=args_post_action):
 			"""
 			Return a string showing the command to run without prog, e.g.
 			"train --dense --load-data=data/4th_dataset_noid.csv --save-model=dist/dense.pt --save-data=dist/4th_dataset_dense_mse.csv"
@@ -653,9 +938,9 @@ def default(options, parser=argument_parser, default_actions=default_actions, lo
 			or
 			"train --load-data=dist/4th_dataset_dense_predictions.csv --save-data=dist/stats"
 			"""
-			return "{0:s} {1:s}".format(action, shlex.join(flag for option_key, (option_value, flag) in action_options.items()))
+			return "{0:s} {1:s}".format(action, shlex.join(flag for option_key, (option_value, flag) in action_options.items()), " ".join(shlex.quote(arg) for arg in args_post_action))
 	else:
-		def format_action(action, action_options):
+		def format_action(action, action_options, args_post_action=args_post_action):
 			"""
 			Return a string showing the command to run without prog, e.g.
 			"train --dense --load-data=data/4th_dataset_noid.csv --save-model=dist/dense.pt --save-data=dist/4th_dataset_dense_mse.csv"
@@ -666,55 +951,46 @@ def default(options, parser=argument_parser, default_actions=default_actions, lo
 			or
 			"train --load-data=dist/4th_dataset_dense_predictions.csv --save-data=dist/stats"
 			"""
-			return "{0:s} {1:s}".format(action, " ".join(shlex.quote(flag) for option_key, (option_value, flag) in action_options.items()))
+			return "{0:s} {1:s} {2:s}".format(action, " ".join(shlex.quote(flag) for option_key, (option_value, flag) in action_options.items()), " ".join(shlex.quote(arg) for arg in args_post_action))
 
-	def run_action(action, action_options, logger=logger):
+	def run_action(action, action_options, args_post_action=args_post_action, prog=prog, logger=logger):
 		"""Run an individual action with options."""
-		return actions[action](
-			argparse.Namespace(**{
-				**options_dict,
-				**{option_key: option_value for option_key, (option_value, flag) in action_options.items()},
-			}),
-			logger=logger,
-		)
-	def run_actions(actions=default_actions, run_action=run_action, logger=logger):
+		# TODO: fix log handling, because the default log options are ignored
+		# when calling the actions directly.  As a workaround, for now just use
+		# subprocess.run().
+		if False:
+			return actions[action](
+				argparse.Namespace(**{
+					**options_dict,
+					**{option_key: option_value for option_key, (option_value, flag) in action_options.items()},
+				}),
+				parser=argument_parser,
+				prog=prog,
+				logger=logger,
+			)
+		else:
+			completed_process = subprocess.run([prog, action] + [flag for option_key, (option_value, flag) in action_options.items()] + args_post_action)
+			if completed_process.returncode != 0:
+				raise WCMIError("error: default action: {0:s} {1:s} returned nonzero code {2:d}.".format(prog, format_action(action, action_options, args_post_action=args_post_action), completed_process.returncode))
+	def run_actions(actions=default_actions, run_action=run_action, prog=prog, logger=logger):
 		"""Print the action to run and run it for each action."""
 		last_result = None
 		for action, action_options in actions:
-			logger.info(format_action(action, action_options))
-			last_result = run_action(action, action_options, logger=logger)
+			logger.info("{0:s} {1:s}".format(prog, format_action(action, action_options, args_post_action=args_post_action)))
+			last_result = run_action(action, action_options, args_post_action=args_post_action, prog=prog, logger=logger)
 		return last_result
 
 	# Now run each action.
-	logger.info("Will run the following actions:")
+	logger.info("Will run the following actions in 5 seconds:")
 	for action, action_options in default_actions:
-		logger.info("  {0:s}".format(format_action(action, action_options)))
+		logger.info("  {0:s} {1:s}".format(prog, format_action(action, action_options)))
 	logger.info("")
+	time.sleep(5)
 
-	raise NotImplementedError("FIXME: the `default' action currently doesn't write log files; disabling the `default' action until this bug is fixed.")
-	run_actions(default_actions, logger=logger)
+	run_actions(default_actions, prog=prog, logger=logger)
 
 	logger.info("")
 	logger.info("Done running default actions.")
-
-@add_action
-def generate(options, parser=argument_parser, logger=logger):
-	"""
-	Just generate 10,000 rows of random data.
-	"""
-
-	if options.load_data is not None:
-		raise WCMIArgsError("error: the generate action doesn't support --load-data.")
-	#if options.save_data is not None:
-		#raise WCMIArgsError("error: the generate action doesn't support --save-data.")
-	if options.load_model is not None:
-		raise WCMIArgsError("error: the generate action doesn't support --load-model.")
-	if options.save_model is not None:
-		raise WCMIArgsError("error: the generate action doesn't support --save-model.")
-
-	# TODO: other options verification.
-
-	return wnn.interface.generate(save_data_path=options.save_data, logger=logger)
 
 if __name__ == "__main__":
 	import sys

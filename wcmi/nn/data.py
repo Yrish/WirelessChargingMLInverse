@@ -108,3 +108,8 @@ default_pause_min_epochs = 0
 #
 # Set no 0 to disable the effect of this parameter.
 default_pause_max_epochs = 0
+
+# When training the discriminator with a reversed model, only correct the
+# discriminator for generated input when it is more confident the generated
+# input is correct than we are.
+no_underconfident_discriminator = True

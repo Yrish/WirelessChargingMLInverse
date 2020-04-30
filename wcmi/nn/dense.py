@@ -35,10 +35,10 @@ class Dense(modules.WCMIModule):
 		# Set the neural network architecture.
 		# (Based on from Braysen's example.py implementation.)
 		self.net = nn.Sequential(
-			nn.Linear(self.simulation_info.num_sim_outputs, 90),
+			nn.Linear(self.get_model_input_size(), 90),
 			nn.LeakyReLU(0.1),
 			nn.Dropout(p=0.02),
-			nn.Linear(90, self.simulation_info.num_sim_inputs),
+			nn.Linear(90, self.get_model_output_size()),
 			nn.Tanh() if data.is_standardized_negative() else nn.LeakyReLU(0.1),
 			#nn.BatchNorm1d(self.simulation_info.num_sim_inputs),
 		)

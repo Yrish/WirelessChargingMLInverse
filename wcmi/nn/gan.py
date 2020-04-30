@@ -123,20 +123,34 @@ class GAN(modules.WCMIModule):
 		# Set the neural network architecture.
 
 		if force_custom_gan_subnetwork_classes or not pytorch_supports_bilinear_in_sequential:
-			self.generator = Generator(self.gan_n, self.simulation_info.num_sim_inputs, self.simulation_info.num_sim_outputs)
-			self.discriminator = Discriminator(self.simulation_info.num_sim_inputs, self.simulation_info.num_sim_outputs)
+			self.generator = Generator(self.gan_n, self.simulation_info.num_sim_inputs, self.simulation_info.num_sim_outputs, reverse=self.reverse)
+			self.discriminator = Discriminator(self.simulation_info.num_sim_inputs, self.simulation_info.num_sim_outputs, reverse=self.reverse)
 		else:
 			self.generator = nn.Sequential(
-				nn.Bilinear(self.simulation_info.num_sim_outputs, self.gan_n, 90),
+				#nn.Bilinear(self.simulation_info.num_sim_outputs, self.gan_n, 90),
+				nn.Bilinear(
+					self.simulation_info.num_sim_outputs if not self.reverse else self.simulation_info.num_sim_inputs,
+					self.gan_n,
+					90,
+				),
 				nn.LeakyReLU(0.1),
 				nn.Dropout(p=0.02),
-				nn.Linear(90, self.simulation_info.num_sim_inputs),
+				#nn.Linear(90, self.simulation_info.num_sim_inputs),
+				nn.Linear(
+					90,
+					self.simulation_info.num_sim_inputs if not self.reverse else self.simulation_info.num_sim_outputs,
+				),
 				nn.Tanh() if data.is_standardized_negative() else nn.LeakyReLU(0.1),
 				#nn.BatchNorm1d(self.simulation_info.num_sim_inputs),
 			)
 
 			self.discriminator = nn.Sequential(
-				nn.Bilinear(self.simulation_info.num_sim_outputs, self.simulation_info.num_sim_inputs, 90),
+				#nn.Bilinear(self.simulation_info.num_sim_outputs, self.simulation_info.num_sim_inputs, 90),
+				nn.Bilinear(
+					self.simulation_info.num_sim_outputs if not self.reverse else self.simulation_info.num_sim_inputs,
+					self.simulation_info.num_sim_inputs if not self.reverse else self.simulation_info.num_sim_outputs,
+					90,
+				),
 				nn.LeakyReLU(0.1),
 				nn.Dropout(p=0.02),
 				nn.Linear(90, 1),
@@ -260,7 +274,7 @@ class GAN(modules.WCMIModule):
 			},
 		)
 
-	def forward_with_standardized(self, *input, subnetwork_selection=GANSubnetworkSelection.DEFAULT, **kwargs):
+	def forward_with_standardized(self, *input, subnetwork_selection=GANSubnetworkSelection.DEFAULT):
 		"""
 		There are 3 possible forward passes:
 
@@ -294,20 +308,76 @@ class GAN(modules.WCMIModule):
 
 		return output
 
+	def get_model_input_size(self, subnetwork_selection=GANSubnetworkSelection.DEFAULT):
+		"""
+		Return the sizes of the input to the subnetwork selection.
+		"""
+
+		# Resolve the subnetwork selection.
+		subnetwork_selection = self.get_subnetwork_selection(subnetwork_selection)
+
+		# Determine whether subnetwork selection contains the generator.
+		has_generator = self.includes_generator(subnetwork_selection)
+
+		# Determine whether the input is coming into the generator.
+		if has_generator:
+			# Generator input.
+			if not self.reverse:
+				model_input_size  = (self.simulation_info.num_sim_inputs, self.gan_n,)
+			else:
+				model_input_size  = (self.simulation_info.num_sim_outputs, self.gan_n,)
+		else:
+			# Discriminator input.
+			if not self.reverse:
+				model_input_size  = (self.simulation_info.num_sim_outputs, self.simulation_info.num_sim_inputs,)
+			else:
+				model_input_size  = (self.simulation_info.num_sim_inputs, self.simulation_info.num_sim_outputs,)
+
+		return model_input_size
+
+	def get_model_output_size(self, subnetwork_selection=GANSubnetworkSelection.DEFAULT):
+		"""
+		Return the size of the output from the subnetwork selection.
+		"""
+
+		# Resolve the subnetwork selection.
+		subnetwork_selection = self.get_subnetwork_selection(subnetwork_selection)
+
+		# Determine whether subnetwork selection contains the discriminator.
+		has_discriminator = self.includes_discriminator(subnetwork_selection)
+
+		# Determine whether the output is coming from the discriminator.
+		if has_discriminator:
+			# Discriminator output.
+			if not self.reverse:
+				model_output_size  = 1
+			else:
+				model_output_size  = 1
+		else:
+			# Generator output.
+			if not self.reverse:
+				model_output_size  = self.simulation_info.num_sim_inputs
+			else:
+				model_output_size  = self.simulation_info.num_sim_outputs
+
+		return model_output_size
+
 # GENERATOR_ONLY.
 default_default_subnetwork_selection = GAN.DEFAULT_DEFAULT_SUBNETWORK_SELECTION
 
 class Generator(nn.Module):
 	"""The generator subnetwork of a GAN."""
 	if not custom_use_res_skips:
-		def __init__(self, gan_n, num_sim_inputs, num_sim_outputs, *args, **kwargs):
+		def __init__(self, gan_n, num_sim_inputs, num_sim_outputs, *args, reverse=False, **kwargs):
 			super().__init__(*args, **kwargs)
 
-			self.bilinear = nn.Bilinear(num_sim_outputs, gan_n, 90)
+			#self.bilinear = nn.Bilinear(num_sim_outputs, gan_n, 90)
+			self.bilinear = nn.Bilinear(num_sim_outputs if not reverse else num_sim_inputs, gan_n, 90)
 			self.layer1 = nn.Sequential(
 				nn.LeakyReLU(0.1),
 				nn.Dropout(p=0.02),
-				nn.Linear(90, num_sim_inputs),
+				#nn.Linear(90, num_sim_inputs),
+				nn.Linear(90, num_sim_inputs if not reverse else num_sim_outputs),
 				nn.Tanh() if data.is_standardized_negative() else nn.LeakyReLU(0.1),
 				#nn.BatchNorm1d(num_sim_inputs),
 			)
@@ -317,10 +387,11 @@ class Generator(nn.Module):
 			x = self.layer1(x)
 			return x
 	else:
-		def __init__(self, gan_n, num_sim_inputs, num_sim_outputs, *args, **kwargs):
+		def __init__(self, gan_n, num_sim_inputs, num_sim_outputs, *args, reverse=False, **kwargs):
 			super().__init__(*args, **kwargs)
 
-			self.bilinear = nn.Bilinear(num_sim_outputs, gan_n, 256)
+			#self.bilinear = nn.Bilinear(num_sim_outputs, gan_n, 256)
+			self.bilinear = nn.Bilinear(num_sim_outputs if not reverse else num_sim_inputs, gan_n, 256)
 			self.layer0 = nn.Sequential(
 				nn.LeakyReLU(0.1),
 			)
@@ -385,7 +456,8 @@ class Generator(nn.Module):
 				nn.LeakyReLU(0.1),
 				nn.Linear(256, 256),
 				nn.LeakyReLU(0.1),
-				nn.Linear(256, num_sim_inputs),
+				#nn.Linear(256, num_sim_inputs),
+				nn.Linear(256, num_sim_inputs if not reverse else num_sim_outputs),
 				nn.Tanh() if data.is_standardized_negative() else nn.LeakyReLU(0.1),
 				#nn.BatchNorm1d(num_sim_inputs),
 			)
@@ -406,10 +478,15 @@ class Generator(nn.Module):
 class Discriminator(nn.Module):
 	"""The discriminator subnetwork of a GAN."""
 	if not custom_use_res_skips:
-		def __init__(self, num_sim_inputs, num_sim_outputs, *args, **kwargs):
+		def __init__(self, num_sim_inputs, num_sim_outputs, *args, reverse=False, **kwargs):
 			super().__init__(*args, **kwargs)
 
-			self.bilinear = nn.Bilinear(num_sim_outputs, num_sim_inputs, 90)
+			#self.bilinear = nn.Bilinear(num_sim_outputs, num_sim_inputs, 90)
+			self.bilinear = nn.Bilinear(
+				num_sim_outputs if not reverse else num_sim_inputs,
+				num_sim_inputs if not reverse else num_sim_outputs,
+				90,
+			)
 			self.layer1 = nn.Sequential(
 				nn.LeakyReLU(0.1),
 				nn.Dropout(p=0.02),
@@ -423,10 +500,15 @@ class Discriminator(nn.Module):
 			x = self.layer1(x)
 			return x
 	else:
-		def __init__(self, num_sim_inputs, num_sim_outputs, *args, **kwargs):
+		def __init__(self, num_sim_inputs, num_sim_outputs, *args, reverse=False, **kwargs):
 			super().__init__(*args, **kwargs)
 
-			self.bilinear = nn.Bilinear(num_sim_outputs, num_sim_inputs, 256)
+			#self.bilinear = nn.Bilinear(num_sim_outputs, num_sim_inputs, 256)
+			self.bilinear = nn.Bilinear(
+				num_sim_outputs if not reverse else num_sim_inputs,
+				num_sim_inputs if not reverse else num_sim_outputs,
+				256,
+			)
 			self.layer0 = nn.Sequential(
 				nn.LeakyReLU(0.1),
 			)

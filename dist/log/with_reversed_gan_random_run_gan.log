@@ -1,0 +1,30 @@
+Logging enabled.
+./wcmi.py run --gan --load-model=dist/with_reversed_gan_gan.pt --load-data=dist/random.csv --save-data=dist/with_reversed_gan_predictions_for_random.csv --log=dist/log/with_reversed_gan_random_run_gan.log --log-truncate --num-epochs=10 --status-every-epoch=1
+All model predictions are within the minimum and maximum boundaries.
+
+WARNING: there is little variance in the predictions for simulation input parameter #1 (`Iin[A]`): std <= this_threshold: 5.536245 <= 9.900000.
+
+WARNING: there is little variance in the predictions for simulation input parameter #2 (`Iout[A]`): std <= this_threshold: 2.072686 <= 9.900000.
+
+WARNING: there is little variance in the predictions for simulation input parameter #3 (`l[mm]`): std <= this_threshold: 76.670853 <= 149.700000.
+
+WARNING: there is little variance in the predictions for simulation input parameter #4 (`p1[mm]`): std <= this_threshold: 13.651767 <= 14.700000.
+
+
+
+
+
+Columns: <Iin[A], Iout[A], l[mm], p1[mm], p2[mm], p3[mm], win[mm]>
+
+Prediction MSEs for each column: <291.772125, 144.076675, 1045182.687500, 961.972412, 3565.346436, 2856.455078, 109915.843750>
+Label variance for each column: <0.000000, 0.000000, 0.000000, 0.000000, 0.000000, 0.000000, 0.000000>
+
+Prediction RMSEs for each column: <17.081339, 12.003195, 1022.341797, 31.015680, 59.710522, 53.445816, 331.535583>
+Label stddev for each column: <0.000000, 0.000000, 0.000000, 0.000000, 0.000000, 0.000000, 0.000000>
+
+Mean of column MSEs: 166131.171875
+Mean of label variances: 0.000000
+
+Mean of column RMSEs: 218.161972
+Mean of label stddevs: 0.000000
+Wrote CSV output with predictions to `dist/with_reversed_gan_predictions_for_random.csv'.

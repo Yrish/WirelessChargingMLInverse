@@ -21,16 +21,19 @@ class WCMIModule(nn.Module):
 	Base class with save and load utility methods.
 
 	If simulation_info is None, it will be initialized to a default value.
+
+	If reverse is set, then instead of predicting simulation inputs for desired
+	simulation outputs, the neural network learns to predict simulation outputs
+	from simulation inputs.
 	"""
 	def __init__(
 		self, load_model_path=None, save_model_path=None,
-		auto_load_model=True, auto_initialize=True,
-		simulation_info=None, standardize=data.standardize,
+		auto_load_model=True, auto_initialize=True, simulation_info=None,
+		reverse=False, standardize=data.standardize,
 		normalize_population=data.normalize_population,
 		normalize_bounds=data.normalize_bounds,
-		normalize_negative=data.normalize_negative,
-		population_mean_in=None, population_std_in=None,
-		population_min_in=None, population_max_in=None,
+		normalize_negative=data.normalize_negative, population_mean_in=None,
+		population_std_in=None, population_min_in=None, population_max_in=None,
 		population_mean_out=None, population_std_out=None,
 		population_min_out=None, population_max_out=None,
 		standardize_bounds_multiple=False,
@@ -56,6 +59,9 @@ class WCMIModule(nn.Module):
 		self.simulation_info = simulation_info
 		if self.simulation_info is None:
 			self.simulation_info = simulation.simulation_info
+		self.reverse = reverse
+		if self.reverse is None:
+			self.reverse = simulation.reverse
 		self.standardize = standardize
 		self.normalize_population = normalize_population
 		self.normalize_bounds = normalize_bounds
@@ -86,13 +92,20 @@ class WCMIModule(nn.Module):
 		# We haven't initialized the model yet.
 		self.initialized = False
 
+		# If auto_load_model is true and we have a path, initialize the model.
+		need_load = False
+		if self.auto_load_model:
+			if self.load_model_path is not None:
+				need_load = True
+		if need_load:
+			self.load(skip_state_dict=True)
+
 		# Call the layer setup method.
 		self.initialize_layers()
 
-		# If auto_load_model is true and we have a path, initialize the model.
-		if self.auto_load_model:
-			if self.load_model_path is not None:
-				self.load()
+		# Now we have both reverse, etc. and the layers.  Load the state dict.
+		if need_load:
+			self.load(skip_non_state_dict=True)
 
 		# If auto_initialize and we haven't initialized the model yet, then
 		# randomly initialize it.
@@ -121,6 +134,7 @@ class WCMIModule(nn.Module):
 			"wcmi_version": wcmi.version.version,
 			"state_dict": self.state_dict(),
 			"simulation_info": self.simulation_info,
+			"reverse": self.reverse,
 			"standardize": self.standardize,
 			"normalize_population": self.normalize_population,
 			"normalize_bounds": self.normalize_bounds,
@@ -138,7 +152,7 @@ class WCMIModule(nn.Module):
 		}
 		return torch.save(checkpoint, save_model_path)
 
-	def load(self, load_model_path=None, update_load_model_path=True, error_version=True, warn_version=True, logger=logger):
+	def load(self, load_model_path=None, update_load_model_path=True, error_version=True, warn_version=True, skip_state_dict=False, skip_non_state_dict=False, logger=logger):
 		"""
 		Load a pytorch model.
 
@@ -157,22 +171,27 @@ class WCMIModule(nn.Module):
 		# Load the model.
 		checkpoint = torch.load(load_model_path)
 		self.wcmi_version = checkpoint["wcmi_version"]
-		result = self.load_state_dict(checkpoint["state_dict"])
-		self.simulation_info = checkpoint["simulation_info"]
-		self.checkpoint_extra = checkpoint["checkpoint_extra"]
-		self.standardize = checkpoint["standardize"]
-		self.normalize_population = checkpoint["normalize_population"]
-		self.normalize_bounds = checkpoint["normalize_bounds"]
-		self.normalize_negative = checkpoint["normalize_negative"]
-		self.population_mean_in = checkpoint["population_mean_in"]
-		self.population_std_in = checkpoint["population_std_in"]
-		self.population_min_in = checkpoint["population_min_in"]
-		self.population_max_in = checkpoint["population_max_in"]
-		self.population_mean_out = checkpoint["population_mean_out"]
-		self.population_std_out = checkpoint["population_std_out"]
-		self.population_min_out = checkpoint["population_min_out"]
-		self.population_max_out = checkpoint["population_max_out"]
-		self.standardize_bounds_multiple = checkpoint["standardize_bounds_multiple"]
+		if not skip_state_dict:
+			result = self.load_state_dict(checkpoint["state_dict"])
+		else:
+			result = None
+		if not skip_non_state_dict:
+			self.simulation_info = checkpoint["simulation_info"]
+			self.checkpoint_extra = checkpoint["checkpoint_extra"]
+			self.standardize = checkpoint["standardize"]
+			self.reverse = checkpoint["reverse"]
+			self.normalize_population = checkpoint["normalize_population"]
+			self.normalize_bounds = checkpoint["normalize_bounds"]
+			self.normalize_negative = checkpoint["normalize_negative"]
+			self.population_mean_in = checkpoint["population_mean_in"]
+			self.population_std_in = checkpoint["population_std_in"]
+			self.population_min_in = checkpoint["population_min_in"]
+			self.population_max_in = checkpoint["population_max_in"]
+			self.population_mean_out = checkpoint["population_mean_out"]
+			self.population_std_out = checkpoint["population_std_out"]
+			self.population_min_out = checkpoint["population_min_out"]
+			self.population_max_out = checkpoint["population_max_out"]
+			self.standardize_bounds_multiple = checkpoint["standardize_bounds_multiple"]
 		self.initialized = True
 
 		# Verify the version.
@@ -330,3 +349,37 @@ class WCMIModule(nn.Module):
 		"""
 		x = self.net(*input)
 		return x
+
+	def get_model_input_size(self, *args, **kwargs):
+		"""
+		By default, this is simulation_info.num_sim_outputs.
+
+		Depending on the network, this might return multiple values.
+		"""
+		if not self.reverse:
+			# desired sim output to predicted sim input.
+			model_input_size  = self.simulation_info.num_sim_outputs
+			model_output_size = self.simulation_info.num_sim_inputs
+		else:
+			# Straightforward neural network approximation for the ANSYS
+			# simulation.
+			model_input_size  = self.simulation_info.num_sim_inputs
+			model_output_size = self.simulation_info.num_sim_outputs
+
+		return model_input_size
+
+	def get_model_output_size(self, *args, **kwargs):
+		"""
+		By default, this is simulation_info.num_sim_inputs.
+		"""
+		if not self.reverse:
+			# desired sim output to predicted sim input.
+			model_input_size  = self.simulation_info.num_sim_outputs
+			model_output_size = self.simulation_info.num_sim_inputs
+		else:
+			# Straightforward neural network approximation for the ANSYS
+			# simulation.
+			model_input_size  = self.simulation_info.num_sim_inputs
+			model_output_size = self.simulation_info.num_sim_outputs
+
+		return model_output_size

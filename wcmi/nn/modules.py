@@ -152,7 +152,7 @@ class WCMIModule(nn.Module):
 		}
 		return torch.save(checkpoint, save_model_path)
 
-	def load(self, load_model_path=None, update_load_model_path=True, error_version=True, warn_version=True, skip_state_dict=False, skip_non_state_dict=False, logger=logger):
+	def load(self, load_model_path=None, update_load_model_path=True, error_version=False, warn_version=True, skip_state_dict=False, skip_non_state_dict=False, logger=logger):
 		"""
 		Load a pytorch model.
 

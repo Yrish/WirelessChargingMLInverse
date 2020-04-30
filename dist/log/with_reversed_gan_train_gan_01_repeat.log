@@ -1,16 +1,106 @@
 Logging enabled.
-./wcmi.py train --gan --load-reversed-model=dist/reversed_gan.pt --reversed-gan --load-model=dist/with_reversed_gan_gan_00_initial.pt --load-data=data/4th_dataset_noid.csv --save-model=dist/with_reversed_gan_gan.pt --save-data=dist/with_reversed_gan_train_gan_bce_01_repeat.csv --log=dist/log/with_reversed_gan_train_gan_01_repeat.log --log-truncate --num-epochs=1
+./wcmi.py train --gan --load-model=dist/with_reversed_gan_gan_00_initial.pt --load-reversed-model=dist/reverse_gan.pt --reversed-gan --load-data=data/4th_dataset_noid.csv --save-model=dist/with_reversed_gan_gan.pt --save-data=dist/with_reversed_gan_train_gan_bce_01_repeat.csv --log=dist/log/with_reversed_gan_train_gan_01_repeat.log --log-truncate --num-epochs=10 --status-every-epoch=1
 device: cpu
 
-Beginning epoch #1/1.
-  Beginning sample #1/6,327 (epoch #1/1).
-  Beginning sample #1,025/6,327 (epoch #1/1).
-  Beginning sample #2,049/6,327 (epoch #1/1).
-  Beginning sample #3,009/6,327 (epoch #1/1).
-  Beginning sample #4,033/6,327 (epoch #1/1).
-  Beginning sample #5,057/6,327 (testing phase) (epoch #1/1).
-  Beginning sample #6,017/6,327 (testing phase) (epoch #1/1).
-Done training epoch #1/1 (mean testing gen, disc_real, disc_gen loss: 20.731560, 2.743759, 12.663035) (mean training gen, disc_real, disc_gen loss: 0.000000, 12.039867, 15.591155) (paused gen, disc: 1097, 2560).
+Beginning epoch #1/10.
+  Beginning sample #1/6,327 (epoch #1/10).
+  Beginning sample #1,025/6,327 (epoch #1/10).
+  Beginning sample #2,049/6,327 (epoch #1/10).
+  Beginning sample #3,009/6,327 (epoch #1/10).
+  Beginning sample #4,033/6,327 (epoch #1/10).
+  Beginning sample #5,057/6,327 (testing phase) (epoch #1/10).
+  Beginning sample #6,017/6,327 (testing phase) (epoch #1/10).
+Done training epoch #1/10 (mean testing gen, disc_real, disc_gen loss: 0.000000, 12.210393, 15.420635) (mean training gen, disc_real, disc_gen loss: 0.000000, 12.273059, 15.357972) (paused gen, disc: 3721, 0).
+
+Beginning epoch #2/10.
+  Beginning sample #1/6,327 (epoch #2/10).
+  Beginning sample #1,025/6,327 (epoch #2/10).
+  Beginning sample #2,049/6,327 (epoch #2/10).
+  Beginning sample #3,009/6,327 (epoch #2/10).
+  Beginning sample #4,033/6,327 (epoch #2/10).
+  Beginning sample #5,057/6,327 (testing phase) (epoch #2/10).
+  Beginning sample #6,017/6,327 (testing phase) (epoch #2/10).
+Done training epoch #2/10 (mean testing gen, disc_real, disc_gen loss: 0.000000, 12.209249, 15.421757) (mean training gen, disc_real, disc_gen loss: 0.017466, 12.273067, 15.357945) (paused gen, disc: 3721, 0).
+
+Beginning epoch #3/10.
+  Beginning sample #1/6,327 (epoch #3/10).
+  Beginning sample #1,025/6,327 (epoch #3/10).
+  Beginning sample #2,049/6,327 (epoch #3/10).
+  Beginning sample #3,009/6,327 (epoch #3/10).
+  Beginning sample #4,033/6,327 (epoch #3/10).
+  Beginning sample #5,057/6,327 (testing phase) (epoch #3/10).
+  Beginning sample #6,017/6,327 (testing phase) (epoch #3/10).
+Done training epoch #3/10 (mean testing gen, disc_real, disc_gen loss: 0.005823, 12.206273, 15.421022) (mean training gen, disc_real, disc_gen loss: 0.000000, 12.273996, 15.357032) (paused gen, disc: 3721, 0).
+
+Beginning epoch #4/10.
+  Beginning sample #1/6,327 (epoch #4/10).
+  Beginning sample #1,025/6,327 (epoch #4/10).
+  Beginning sample #2,049/6,327 (epoch #4/10).
+  Beginning sample #3,009/6,327 (epoch #4/10).
+  Beginning sample #4,033/6,327 (epoch #4/10).
+  Beginning sample #5,057/6,327 (testing phase) (epoch #4/10).
+  Beginning sample #6,017/6,327 (testing phase) (epoch #4/10).
+Done training epoch #4/10 (mean testing gen, disc_real, disc_gen loss: 0.000000, 12.210469, 15.420563) (mean training gen, disc_real, disc_gen loss: 0.000000, 12.275087, 15.355927) (paused gen, disc: 3721, 0).
+
+Beginning epoch #5/10.
+  Beginning sample #1/6,327 (epoch #5/10).
+  Beginning sample #1,025/6,327 (epoch #5/10).
+  Beginning sample #2,049/6,327 (epoch #5/10).
+  Beginning sample #3,009/6,327 (epoch #5/10).
+  Beginning sample #4,033/6,327 (epoch #5/10).
+  Beginning sample #5,057/6,327 (testing phase) (epoch #5/10).
+  Beginning sample #6,017/6,327 (testing phase) (epoch #5/10).
+Done training epoch #5/10 (mean testing gen, disc_real, disc_gen loss: 0.000000, 12.208406, 15.422601) (mean training gen, disc_real, disc_gen loss: 0.000000, 12.271791, 15.359238) (paused gen, disc: 3721, 0).
+
+Beginning epoch #6/10.
+  Beginning sample #1/6,327 (epoch #6/10).
+  Beginning sample #1,025/6,327 (epoch #6/10).
+  Beginning sample #2,049/6,327 (epoch #6/10).
+  Beginning sample #3,009/6,327 (epoch #6/10).
+  Beginning sample #4,033/6,327 (epoch #6/10).
+  Beginning sample #5,057/6,327 (testing phase) (epoch #6/10).
+  Beginning sample #6,017/6,327 (testing phase) (epoch #6/10).
+Done training epoch #6/10 (mean testing gen, disc_real, disc_gen loss: 0.000000, 12.206688, 15.424338) (mean training gen, disc_real, disc_gen loss: 0.000000, 12.269423, 15.361589) (paused gen, disc: 3721, 0).
+
+Beginning epoch #7/10.
+  Beginning sample #1/6,327 (epoch #7/10).
+  Beginning sample #1,025/6,327 (epoch #7/10).
+  Beginning sample #2,049/6,327 (epoch #7/10).
+  Beginning sample #3,009/6,327 (epoch #7/10).
+  Beginning sample #4,033/6,327 (epoch #7/10).
+  Beginning sample #5,057/6,327 (testing phase) (epoch #7/10).
+  Beginning sample #6,017/6,327 (testing phase) (epoch #7/10).
+Done training epoch #7/10 (mean testing gen, disc_real, disc_gen loss: 0.000000, 12.209284, 15.421798) (mean training gen, disc_real, disc_gen loss: 0.000000, 12.266915, 15.364101) (paused gen, disc: 3721, 0).
+
+Beginning epoch #8/10.
+  Beginning sample #1/6,327 (epoch #8/10).
+  Beginning sample #1,025/6,327 (epoch #8/10).
+  Beginning sample #2,049/6,327 (epoch #8/10).
+  Beginning sample #3,009/6,327 (epoch #8/10).
+  Beginning sample #4,033/6,327 (epoch #8/10).
+  Beginning sample #5,057/6,327 (testing phase) (epoch #8/10).
+  Beginning sample #6,017/6,327 (testing phase) (epoch #8/10).
+Done training epoch #8/10 (mean testing gen, disc_real, disc_gen loss: 0.000000, 12.209544, 15.421488) (mean training gen, disc_real, disc_gen loss: 0.000000, 12.271372, 15.359667) (paused gen, disc: 3721, 0).
+
+Beginning epoch #9/10.
+  Beginning sample #1/6,327 (epoch #9/10).
+  Beginning sample #1,025/6,327 (epoch #9/10).
+  Beginning sample #2,049/6,327 (epoch #9/10).
+  Beginning sample #3,009/6,327 (epoch #9/10).
+  Beginning sample #4,033/6,327 (epoch #9/10).
+  Beginning sample #5,057/6,327 (testing phase) (epoch #9/10).
+  Beginning sample #6,017/6,327 (testing phase) (epoch #9/10).
+Done training epoch #9/10 (mean testing gen, disc_real, disc_gen loss: 0.000000, 12.207860, 15.423149) (mean training gen, disc_real, disc_gen loss: 0.000000, 12.267703, 15.363326) (paused gen, disc: 3721, 0).
+
+Beginning epoch #10/10.
+  Beginning sample #1/6,327 (epoch #10/10).
+  Beginning sample #1,025/6,327 (epoch #10/10).
+  Beginning sample #2,049/6,327 (epoch #10/10).
+  Beginning sample #3,009/6,327 (epoch #10/10).
+  Beginning sample #4,033/6,327 (epoch #10/10).
+  Beginning sample #5,057/6,327 (testing phase) (epoch #10/10).
+  Beginning sample #6,017/6,327 (testing phase) (epoch #10/10).
+Done training epoch #10/10 (mean testing gen, disc_real, disc_gen loss: 0.000037, 12.203888, 15.417272) (mean training gen, disc_real, disc_gen loss: 0.000000, 12.269224, 15.361793) (paused gen, disc: 3721, 0).
 
 Wrote training epoch data to `dist/with_reversed_gan_train_gan_bce_01_repeat.csv'.
 

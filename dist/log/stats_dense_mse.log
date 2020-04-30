@@ -1,0 +1,2 @@
+Logging enabled.
+./wcmi.py stats --load-data=dist/4th_dataset_dense_mse.csv --save-data=dist/stats --log=dist/log/stats_dense_mse.log --log-truncate --num-epochs=10 --status-every-epoch=1

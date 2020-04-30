@@ -1,0 +1,57 @@
+Logging enabled.
+./wcmi.py run --dense --load-model=dist/dense.pt --load-data=dist/random.csv --save-data=dist/predictions_for_random.csv --log=dist/log/random_run_dense.log --log-truncate --num-epochs=10 --status-every-epoch=1
+All model predictions are within the minimum and maximum boundaries.
+
+WARNING: there are few unique values (#2) for predictions for simulation input parameter #1 (`Iin[A]`):
+  35.805527 x6,539
+  10.861142 x3,461
+
+WARNING: there are few unique values (#7) for predictions for simulation input parameter #2 (`Iout[A]`):
+  10.861142 x5,979
+  35.805527 x4,016
+  35.8053  
+  11.2979965
+  10.896257
+  10.861159
+  10.861147
+
+WARNING: there are few unique values (#3) for predictions for simulation input parameter #3 (`l[mm]`):
+  1063.6742 x5,320
+  463.49515 x4,679
+  463.4992 
+
+WARNING: there are few unique values (#4) for predictions for simulation input parameter #4 (`p1[mm]`):
+  17.34751  x7,532
+  74.60128  x2,466
+  74.60114 
+  74.60007 
+
+WARNING: there are few unique values (#2) for predictions for simulation input parameter #5 (`p2[mm]`):
+  17.892233 x5,735
+  76.10492  x4,265
+
+WARNING: there are few unique values (#4) for predictions for simulation input parameter #6 (`p3[mm]`):
+  17.892233 x5,669
+  76.10492  x4,329
+  76.10491 
+  76.00127 
+
+WARNING: there are few unique values (#2) for predictions for simulation input parameter #7 (`win[mm]`):
+  125.0428  x9,248
+  539.2531  x752
+
+
+Columns: <Iin[A], Iout[A], l[mm], p1[mm], p2[mm], p3[mm], win[mm]>
+
+Prediction MSEs for each column: <879.150818, 585.572937, 702445.750000, 1600.193726, 2653.866699, 2689.978760, 36327.593750>
+Label variance for each column: <0.000000, 0.000000, 0.000000, 0.000000, 0.000000, 0.000000, 0.000000>
+
+Prediction RMSEs for each column: <29.650478, 24.198614, 838.120361, 40.002422, 51.515694, 51.865005, 190.597992>
+Label stddev for each column: <0.000000, 0.000000, 0.000000, 0.000000, 0.000000, 0.000000, 0.000000>
+
+Mean of column MSEs: 106740.304688
+Mean of label variances: 0.000000
+
+Mean of column RMSEs: 175.135818
+Mean of label stddevs: 0.000000
+Wrote CSV output with predictions to `dist/predictions_for_random.csv'.

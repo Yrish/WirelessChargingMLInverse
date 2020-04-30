@@ -1,2 +1,11 @@
 training_mean_discriminator_real_bce_loss,training_mean_discriminator_generated_bce_loss,training_mean_generator_bce_loss,testing_mean_discriminator_real_bce_loss,testing_mean_discriminator_generated_bce_loss,testing_mean_generator_bce_loss,num_training_samples,num_discriminator_training_paused,num_generator_training_paused
-tensor(22.5409),tensor(0.3532),tensor(10.2671),tensor(27.6314),tensor(15.5848),tensor(12.0462),4745,0,3721
+tensor(22.5140),tensor(0.2986),tensor(10.3728),tensor(27.6314),tensor(15.3621),tensor(12.2689),4745,0,3657
+tensor(27.3684),tensor(0.0122),tensor(12.1136),tensor(27.5790),tensor(15.3594),tensor(12.2717),4745,0,3593
+tensor(21.0691),tensor(2.5828),tensor(12.6490),tensor(0.7685),tensor(12.3073),tensor(15.3237),4745,1033,2496
+tensor(14.3640),tensor(4.7717),tensor(13.3762),tensor(6.6117),tensor(9.7398),tensor(13.8881),4745,2057,1664
+tensor(0.5033),tensor(11.9599),tensor(15.3524),tensor(0.),tensor(12.2756),tensor(15.3554),4745,3721,0
+tensor(0.),tensor(12.2078),tensor(15.4232),tensor(0.),tensor(12.2757),tensor(15.3553),4745,3721,0
+tensor(0.),tensor(12.2098),tensor(15.4212),tensor(0.),tensor(12.2723),tensor(15.3587),4745,3721,0
+tensor(0.),tensor(12.2105),tensor(15.4204),tensor(0.),tensor(12.2723),tensor(15.3587),4745,3721,0
+tensor(0.),tensor(12.2101),tensor(15.4209),tensor(0.),tensor(12.2776),tensor(15.3535),4745,3721,0
+tensor(0.),tensor(12.2072),tensor(15.4238),tensor(0.),tensor(12.2774),tensor(15.3536),4745,3721,0

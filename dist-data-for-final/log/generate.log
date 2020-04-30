@@ -1,0 +1,2 @@
+Logging enabled.
+./wcmi.py generate --save-data=dist/random.csv --log=dist/log/generate.log --log-truncate
